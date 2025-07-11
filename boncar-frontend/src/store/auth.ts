@@ -23,9 +23,12 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async fetchUser() {
       try {
+        console.log('[AuthStore] fetchUser: Memulai pengambilan data pengguna...');
         const { data } = await api.get('/api/user');
+        console.log('[AuthStore] fetchUser: Data pengguna berhasil diterima:', data);
         this.user = data;
       } catch (error) {
+        console.error('[AuthStore] fetchUser: Gagal mengambil data pengguna.', error);
         this.user = null;
       }
     },
@@ -33,6 +36,7 @@ export const useAuthStore = defineStore('auth', {
     async login(credentials: { email: string, password: string }) {
       await getCsrfCookie();
       await api.post('/api/login', credentials);
+      console.log('[AuthStore] login: Panggilan API login berhasil. Sekarang mengambil data pengguna...');
       await this.fetchUser();
     },
 
@@ -44,7 +48,6 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       await api.post('/api/logout');
       this.user = null;
-      // Redirect dari sini untuk memastikan pengguna langsung keluar
       router.push({ name: 'Login' });
     },
   },

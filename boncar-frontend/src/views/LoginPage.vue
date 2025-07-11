@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
 
 const email = ref('');
@@ -8,6 +9,7 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 
 const authStore = useAuthStore();
+const router = useRouter();
 
 const handleLogin = async () => {
   if (!email.value || !password.value) {
@@ -19,12 +21,24 @@ const handleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    // PERBAIKAN: Cukup panggil login. Store akan menangani pengalihan.
+    console.log('[LoginPage] handleLogin: Memanggil authStore.login...');
     await authStore.login({
       email: email.value,
       password: password.value,
     });
-    // Tidak ada lagi router.push di sini
+    console.log('[LoginPage] handleLogin: authStore.login selesai.');
+
+    // Cek state SETELAH login selesai
+    console.log('[LoginPage] handleLogin: State setelah login -> isAuthenticated:', authStore.isAuthenticated);
+    console.log('[LoginPage] handleLogin: State setelah login -> user:', authStore.user);
+
+    if (authStore.isAuthenticated) {
+      console.log('[LoginPage] handleLogin: Pengguna terotentikasi. Mengarahkan ke Dashboard...');
+      router.push({ name: 'Dashboard' });
+    } else {
+      console.error('[LoginPage] handleLogin: GAGAL! Pengguna tidak terotentikasi setelah login berhasil.');
+      errorMessage.value = 'Gagal memverifikasi sesi setelah login. Silakan coba lagi.';
+    }
 
   } catch (error: any) {
     if (error.response?.status === 422) {
@@ -98,6 +112,7 @@ const handleLogin = async () => {
   </div>
 </template>
 
+<!-- Style tidak perlu diubah -->
 <style scoped>
 .login-page {
   position: relative;
