@@ -12,41 +12,23 @@ const authStore = useAuthStore();
 const router = useRouter();
 
 const handleLogin = async () => {
-  if (!email.value || !password.value) {
-    errorMessage.value = 'Email dan kata sandi tidak boleh kosong.';
-    return;
-  }
-
   isLoading.value = true;
   errorMessage.value = '';
-
   try {
-    console.log('[LoginPage] handleLogin: Memanggil authStore.login...');
     await authStore.login({
       email: email.value,
       password: password.value,
     });
-    console.log('[LoginPage] handleLogin: authStore.login selesai.');
-
-    // Cek state SETELAH login selesai
-    console.log('[LoginPage] handleLogin: State setelah login -> isAuthenticated:', authStore.isAuthenticated);
-    console.log('[LoginPage] handleLogin: State setelah login -> user:', authStore.user);
-
     if (authStore.isAuthenticated) {
-      console.log('[LoginPage] handleLogin: Pengguna terotentikasi. Mengarahkan ke Dashboard...');
       router.push({ name: 'Dashboard' });
     } else {
-      console.error('[LoginPage] handleLogin: GAGAL! Pengguna tidak terotentikasi setelah login berhasil.');
-      errorMessage.value = 'Gagal memverifikasi sesi setelah login. Silakan coba lagi.';
+      errorMessage.value = 'Gagal memverifikasi sesi setelah login.';
     }
-
   } catch (error: any) {
     if (error.response?.status === 422) {
       errorMessage.value = 'Email atau kata sandi yang Anda masukkan salah.';
-    } else if (error.response?.status === 403) {
-      errorMessage.value = 'Akun Anda belum diverifikasi. Silakan periksa email Anda.';
     } else {
-      errorMessage.value = 'Terjadi kesalahan pada server. Silakan coba lagi.';
+      errorMessage.value = 'Terjadi kesalahan. Silakan periksa kredensial Anda.';
     }
   } finally {
     isLoading.value = false;
@@ -112,7 +94,6 @@ const handleLogin = async () => {
   </div>
 </template>
 
-<!-- Style tidak perlu diubah -->
 <style scoped>
 .login-page {
   position: relative;
