@@ -7,32 +7,39 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\FormulaController;
 use App\Http\Controllers\Api\CalculatorController;
 use App\Http\Controllers\Api\SpeciesController;
-use App\Http\Controllers\Api\EmailVerificationController; // <-- IMPORT BARU
+use App\Http\Controllers\Api\EmailVerificationController;
 
 // --- RUTE PUBLIK ---
+// Rute ini dapat diakses oleh siapa saja.
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// --- RUTE VERIFIKASI EMAIL (Sangat Penting) ---
-// Rute ini harus bisa diakses bahkan oleh pengguna yang belum login (saat mereka mengklik link email)
+// --- RUTE VERIFIKASI EMAIL ---
+// Rute ini harus memiliki middleware 'auth:sanctum' agar Laravel bisa
+// mengidentifikasi pengguna dari URL yang ditandatangani (signed URL) saat diklik.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-    ->middleware(['signed']) // Memvalidasi signature pada URL
-    ->name('verification.verify'); // WAJIB: Memberi nama rute yang dicari Laravel
+    ->middleware(['auth:sanctum', 'signed']) // PERUBAHAN KUNCI ADA DI SINI
+    ->name('verification.verify'); // Nama ini wajib agar Laravel bisa membuat URL verifikasi.
 
 // --- RUTE YANG MEMBUTUHKAN OTENTIKASI ---
+// Semua rute di dalam grup ini hanya bisa diakses jika pengguna sudah login.
 Route::middleware('auth:sanctum')->group(function () {
+    
     Route::post('/logout', [AuthController::class, 'logout']);
+    
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
     
-    // Rute untuk mengirim ulang email verifikasi
+    // Rute untuk mengirim ulang email verifikasi jika pengguna memintanya.
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
-        ->middleware('throttle:6,1') // Batasi pengiriman ulang
+        ->middleware('throttle:6,1') // Batasi pengiriman ulang: 6 kali per menit.
         ->name('verification.send');
 
-    // Rute yang hanya bisa diakses setelah email terverifikasi
+    // --- RUTE YANG MEMBUTUHKAN EMAIL TERVERIFIKASI ---
+    // Semua rute di dalam grup ini hanya bisa diakses jika pengguna sudah login DAN emailnya terverifikasi.
     Route::middleware('verified')->group(function() {
+        
         // Profil Pengguna
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::put('/profile', [ProfileController::class, 'update']);
@@ -50,7 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/species/search', [SpeciesController::class, 'search']);
         Route::get('/species', [SpeciesController::class, 'index']);
 
-        // === Rute Khusus Admin ===
+        // === RUTE KHUSUS ADMIN ===
+        // Rute ini hanya bisa diakses oleh pengguna dengan peran 'admin'.
         Route::middleware('admin')->prefix('admin')->group(function () {
             Route::get('/submissions', [FormulaController::class, 'getSubmissions']);
             Route::post('/submissions/{submission}/approve', [FormulaController::class, 'approve']);

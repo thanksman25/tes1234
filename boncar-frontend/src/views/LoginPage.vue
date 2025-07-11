@@ -15,21 +15,22 @@ const handleLogin = async () => {
   isLoading.value = true;
   errorMessage.value = '';
   try {
+    // 1. Panggil action login dan TUNGGU sampai selesai
     await authStore.login({
       email: email.value,
       password: password.value,
     });
+
+    // 2. SETELAH action selesai, periksa state terbaru.
     if (authStore.isAuthenticated) {
+      // 3. BARU arahkan ke Dashboard.
       router.push({ name: 'Dashboard' });
     } else {
+      // Kasus langka jika login berhasil tapi fetchUser gagal
       errorMessage.value = 'Gagal memverifikasi sesi setelah login.';
     }
   } catch (error: any) {
-    if (error.response?.status === 422) {
-      errorMessage.value = 'Email atau kata sandi yang Anda masukkan salah.';
-    } else {
-      errorMessage.value = 'Terjadi kesalahan. Silakan periksa kredensial Anda.';
-    }
+    errorMessage.value = 'Email atau kata sandi salah, atau akun belum diverifikasi.';
   } finally {
     isLoading.value = false;
   }

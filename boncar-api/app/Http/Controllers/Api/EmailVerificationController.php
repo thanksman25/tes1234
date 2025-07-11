@@ -4,34 +4,27 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Foundation\Auth\EmailVerificationRequest; // <-- Gunakan ini
 use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Http\RedirectResponse; // <-- Gunakan ini untuk redirect
 
 class EmailVerificationController extends Controller
 {
     /**
      * Menandai email pengguna yang diautentikasi sebagai terverifikasi.
-     * Ini adalah endpoint yang akan dituju oleh link di email.
+     * Ini adalah metode yang jauh lebih aman dan andal.
      */
-    public function verify(Request $request)
+    public function verify(EmailVerificationRequest $request): RedirectResponse
     {
-        $user = User::findOrFail($request->route('id'));
-
-        // Cek apakah hash URL valid
-        if (! hash_equals((string) $request->route('hash'), sha1($user->getEmailForVerification()))) {
-            // Redirect ke halaman gagal di frontend jika hash tidak cocok
-            return redirect(env('FRONTEND_URL') . '/verification-failure?message=Invalid_verification_link');
-        }
-
         // Cek apakah email sudah diverifikasi sebelumnya
-        if ($user->hasVerifiedEmail()) {
-            // Redirect ke halaman sukses dengan pesan bahwa sudah terverifikasi
+        if ($request->user()->hasVerifiedEmail()) {
             return redirect(env('FRONTEND_URL') . '/verification-success?message=Email_already_verified');
         }
 
         // Verifikasi email dan picu event 'Verified'
-        if ($user->markEmailAsVerified()) {
-            event(new Verified($user));
+        if ($request->user()->markEmailAsVerified()) {
+            event(new Verified($request->user()));
         }
 
         // Redirect ke halaman sukses di frontend

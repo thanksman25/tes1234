@@ -12,6 +12,9 @@ app.use(pinia);
 app.use(router);
 
 const authStore = useAuthStore();
+
+// Coba ambil data pengguna (memeriksa sesi) SEBELUM aplikasi di-mount.
+// Ini adalah kunci untuk mencegah race condition.
 authStore.fetchUser().then(() => {
   app.mount('#app');
 });
