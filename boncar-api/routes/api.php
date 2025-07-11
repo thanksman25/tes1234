@@ -15,10 +15,10 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // --- RUTE VERIFIKASI EMAIL ---
-// Rute ini harus memiliki middleware 'auth:sanctum' agar Laravel bisa
-// mengidentifikasi pengguna dari URL yang ditandatangani (signed URL) saat diklik.
+// Rute ini harus memiliki middleware 'signed' agar URL aman,
+// namun 'auth:sanctum' DIHAPUS agar pengguna yang belum login bisa mengaksesnya.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-    ->middleware(['auth:sanctum', 'signed']) // PERUBAHAN KUNCI ADA DI SINI
+    ->middleware(['signed']) // <-- PERUBAHAN KUNCI ADA DI SINI
     ->name('verification.verify'); // Nama ini wajib agar Laravel bisa membuat URL verifikasi.
 
 // --- RUTE YANG MEMBUTUHKAN OTENTIKASI ---

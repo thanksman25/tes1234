@@ -30,7 +30,14 @@ const handleLogin = async () => {
       errorMessage.value = 'Gagal memverifikasi sesi setelah login.';
     }
   } catch (error: any) {
-    errorMessage.value = 'Email atau kata sandi salah, atau akun belum diverifikasi.';
+    // === BLOK YANG DIPERBAIKI ===
+    // Tangani error spesifik dari backend untuk pengalaman pengguna yang lebih baik
+    if (error.response?.status === 403 && error.response?.data?.message === 'Please verify your email address first.') {
+      errorMessage.value = 'Email Anda belum terverifikasi. Silakan cek kotak masuk Anda.';
+    } else {
+      errorMessage.value = 'Email atau kata sandi salah, atau akun belum diverifikasi.';
+    }
+    // === AKHIR BLOK YANG DIPERBAIKI ===
   } finally {
     isLoading.value = false;
   }

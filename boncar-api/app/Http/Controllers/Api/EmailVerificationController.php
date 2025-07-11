@@ -4,35 +4,48 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Illuminate\Foundation\Auth\EmailVerificationRequest; // <-- Gunakan ini
-use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Verified;
-use Illuminate\Http\RedirectResponse; // <-- Gunakan ini untuk redirect
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class EmailVerificationController extends Controller
 {
     /**
-     * Menandai email pengguna yang diautentikasi sebagai terverifikasi.
-     * Ini adalah metode yang jauh lebih aman dan andal.
+     * Menandai email pengguna sebagai terverifikasi.
+     * Logika ini dimodifikasi untuk tidak bergantung pada sesi login.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function verify(EmailVerificationRequest $request): RedirectResponse
+    public function verify(Request $request): RedirectResponse
     {
-        // Cek apakah email sudah diverifikasi sebelumnya
-        if ($request->user()->hasVerifiedEmail()) {
+        // 1. Cari pengguna berdasarkan ID dari URL
+        $user = User::find($request->route('id'));
+
+        // Jika pengguna tidak ditemukan atau hash tidak valid, gagalkan.
+        // Fungsi hash_equals() aman untuk perbandingan string.
+        if (! $user || ! hash_equals((string) $request->route('hash'), sha1($user->getEmailForVerification()))) {
+             // Redirect ke halaman gagal di frontend
+            return redirect(env('FRONTEND_URL') . '/verification-failure?message=Invalid_verification_link');
+        }
+
+        // 2. Cek apakah email sudah diverifikasi sebelumnya
+        if ($user->hasVerifiedEmail()) {
             return redirect(env('FRONTEND_URL') . '/verification-success?message=Email_already_verified');
         }
 
-        // Verifikasi email dan picu event 'Verified'
-        if ($request->user()->markEmailAsVerified()) {
-            event(new Verified($request->user()));
+        // 3. Verifikasi email pengguna dan picu event 'Verified'
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
         }
 
-        // Redirect ke halaman sukses di frontend
+        // 4. Redirect ke halaman sukses di frontend
         return redirect(env('FRONTEND_URL') . '/verification-success');
     }
 
     /**
      * Mengirim ulang email verifikasi.
+     * Metode ini memerlukan pengguna untuk login, jadi tidak ada perubahan di sini.
      */
     public function resend(Request $request)
     {

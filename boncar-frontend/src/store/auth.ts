@@ -25,11 +25,26 @@ export const useAuthStore = defineStore('auth', {
         this.user = null;
       }
     },
+    
+    // === FUNGSI YANG DIPERBAIKI ===
     async login(credentials: { email: string, password: string }) {
       await getCsrfCookie();
-      await api.post('/api/login', credentials);
-      await this.fetchUser();
+      
+      // Panggil API login dan simpan responsnya
+      const response = await api.post('/api/login', credentials);
+
+      // Cek jika login berhasil dan ada data pengguna di respons
+      if (response.data && response.data.user) {
+        // Langsung set state user dari data yang sudah didapat,
+        // tidak perlu memanggil fetchUser() lagi.
+        this.user = response.data.user;
+      } else {
+        // Jika respons tidak sesuai harapan, reset state
+        this.user = null;
+      }
     },
+    // === AKHIR FUNGSI YANG DIPERBAIKI ===
+
     async register(credentials: any) {
       await getCsrfCookie();
       await api.post('/api/register', credentials);
