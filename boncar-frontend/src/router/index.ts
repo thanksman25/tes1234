@@ -2,10 +2,41 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
 
 const routes = [
+  // Rute Otentikasi
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginPage.vue'),
+    meta: { guestOnly: true }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/RegisterPage.vue'),
+    meta: { guestOnly: true }
+  },
+  {
+    path: '/verification-success',
+    name: 'VerificationSuccess',
+    component: () => import('@/views/VerificationStatusPage.vue'),
+  },
+  {
+    path: '/verification-failure',
+    name: 'VerificationFailure',
+    component: () => import('@/views/VerificationStatusPage.vue'),
+  },
+
+  // Rute Utama (Membutuhkan Login)
   {
     path: '/',
     name: 'Dashboard',
     component: () => import('@/views/DashboardPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/ProfilePage.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -14,7 +45,6 @@ const routes = [
     component: () => import('@/views/NewSubmissionPage.vue'),
     meta: { requiresAuth: true }
   },
-  // --- PENAMBAHAN RUTE REKAPITULASI ---
   {
     path: '/recapitulation',
     name: 'RecapList',
@@ -27,32 +57,6 @@ const routes = [
     component: () => import('@/views/RecapDetailPage.vue'),
     meta: { requiresAuth: true }
   },
-  {
-    path: '/users',
-    name: 'Users',
-    component: () => import('@/views/UsersPage.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  // --- NAMA RUTE LAMA DIGANTI DENGAN YANG BARU ---
-  {
-    path: '/alometric-verification',
-    name: 'AlometricVerification', // Menggunakan nama ini
-    component: () => import('@/views/AlometricVerificationPage.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/submission/:id',
-    name: 'SubmissionDetail',
-    component: () => import('@/views/SubmissionDetailPage.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/ProfilePage.vue'),
-    meta: { requiresAuth: true }
-  },
-  // --- PENAMBAHAN RUTE KALKULATOR ---
   {
     path: '/calculator/form',
     name: 'CalculatorForm',
@@ -71,38 +75,8 @@ const routes = [
     component: () => import('@/views/CalculatorResultsPage.vue'),
     meta: { requiresAuth: true }
   },
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/LoginPage.vue'),
-    meta: { guestOnly: true }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: () => import('@/views/RegisterPage.vue'),
-    meta: { guestOnly: true }
-  },
-  // --- PENAMBAHAN RUTE BARU DI SINI ---
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/ProfilePage.vue'),
-    meta: { requiresAuth: true }
-  },
-    {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/ProfilePage.vue'),
-    meta: { requiresAuth: true }
-  },
-  // --- PENAMBAHAN RUTE BARU DI SINI ---
-  {
-    path: '/new-submission',
-    name: 'NewSubmission',
-    component: () => import('@/views/NewSubmissionPage.vue'),
-    meta: { requiresAuth: true }
-  },
+
+  // Rute Khusus Admin
   {
     path: '/users',
     name: 'Users',
@@ -110,9 +84,9 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/submission-verification',
-    name: 'SubmissionVerification',
-    component: () => import('@/views/SubmissionVerificationPage.vue'),
+    path: '/alometric-verification',
+    name: 'AlometricVerification',
+    component: () => import('@/views/AlometricVerificationPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
@@ -128,21 +102,29 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, _from, next) => {
+// Navigation Guard
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
-  const isAuthenticated = authStore.isAuthenticated;
-  const userRole = authStore.user?.role;
-
-  if (to.meta.requiresAdmin && userRole !== 'admin') {
-    next({ name: 'Dashboard' });
+  
+  // Jika store belum terisi, coba fetch user dulu
+  if (authStore.user === null) {
+    await authStore.fetchUser();
   }
-  else if (to.meta.requiresAuth && !isAuthenticated) {
+
+  const isAuthenticated = authStore.isAuthenticated;
+  const userRole = authStore.userRole;
+
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    // Jika butuh login tapi belum login, redirect ke login
     next({ name: 'Login' });
-  } 
-  else if (to.meta.guestOnly && isAuthenticated) {
+  } else if (to.meta.guestOnly && isAuthenticated) {
+    // Jika halaman hanya untuk tamu (login/register) tapi sudah login, redirect ke dashboard
     next({ name: 'Dashboard' });
-  } 
-  else {
+  } else if (to.meta.requiresAdmin && userRole !== 'admin') {
+    // Jika butuh admin tapi bukan admin, redirect ke dashboard
+    next({ name: 'Dashboard' });
+  } else {
+    // Jika semua oke, lanjutkan
     next();
   }
 });

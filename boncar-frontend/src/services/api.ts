@@ -1,25 +1,32 @@
 // src/services/api.ts
 
 import axios from 'axios';
-import { useAuthStore } from '@/store/auth';
 
-// Buat instance Axios
+// Buat instance Axios baru
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, // Ambil URL dari environment variable
+  // URL dasar backend Anda dari file .env.
+  // Pastikan VITE_API_URL adalah http://localhost:8000 atau http://127.0.0.1:8000
+  baseURL: import.meta.env.VITE_API_URL, 
+  
+  // WAJIB: Izinkan browser untuk mengirim dan menerima cookie dari backend.
+  withCredentials: true, 
+  
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
   }
 });
 
-// Interceptor untuk menambahkan token otentikasi ke setiap request
-api.interceptors.request.use(config => {
-  const authStore = useAuthStore();
-  const token = authStore.token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Fungsi untuk mendapatkan CSRF cookie sebelum melakukan login/register.
+// Ini adalah "jabat tangan" yang diperlukan oleh Laravel Sanctum.
+export const getCsrfCookie = async () => {
+  try {
+    // Permintaan ini akan mengarah ke http://localhost:8000/sanctum/csrf-cookie
+    await api.get('/sanctum/csrf-cookie');
+  } catch (error) {
+    console.error('Gagal mendapatkan CSRF cookie:', error);
+    // Di aplikasi produksi, Anda mungkin ingin menangani error ini lebih lanjut.
   }
-  return config;
-});
+};
 
 export default api;
