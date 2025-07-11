@@ -2,7 +2,6 @@
 import { ref } from 'vue';
 import { useAuthStore } from '@/store/auth';
 
-// Reactive state untuk form
 const email = ref('');
 const password = ref('');
 const isLoading = ref(false);
@@ -10,7 +9,6 @@ const errorMessage = ref('');
 
 const authStore = useAuthStore();
 
-// Fungsi untuk menangani login
 const handleLogin = async () => {
   if (!email.value || !password.value) {
     errorMessage.value = 'Email dan kata sandi tidak boleh kosong.';
@@ -21,15 +19,14 @@ const handleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    // Memanggil action login dari Pinia store.
-    // Pengalihan (redirect) sekarang ditangani di dalam action tersebut.
+    // PERBAIKAN: Cukup panggil login. Store akan menangani pengalihan.
     await authStore.login({
       email: email.value,
       password: password.value,
     });
+    // Tidak ada lagi router.push di sini
 
   } catch (error: any) {
-    // PERBAIKAN UTAMA: Menangani error dari server dengan lebih baik
     if (error.response?.status === 422) {
       errorMessage.value = 'Email atau kata sandi yang Anda masukkan salah.';
     } else if (error.response?.status === 403) {
@@ -37,7 +34,6 @@ const handleLogin = async () => {
     } else {
       errorMessage.value = 'Terjadi kesalahan pada server. Silakan coba lagi.';
     }
-    console.error("Login Gagal:", error);
   } finally {
     isLoading.value = false;
   }
@@ -48,7 +44,7 @@ const handleLogin = async () => {
   <div class="login-page">
     <div class="background-overlay"></div>
     <div class="login-container">
-      <img src="@/assets/images/logo_boncar_white.png" alt="Logo Boncar" class="logo">
+      <img src="@/assets/images/logo_boncar_white.png" alt="Boncar Logo" class="logo">
       
       <h1 class="title">Masuk Ke Akun Anda</h1>
       <router-link :to="{ name: 'Register' }" class="register-link-alt">
@@ -102,7 +98,6 @@ const handleLogin = async () => {
   </div>
 </template>
 
-<!-- Style tidak perlu diubah -->
 <style scoped>
 .login-page {
   position: relative;
