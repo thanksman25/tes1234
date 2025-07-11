@@ -102,29 +102,29 @@ const router = createRouter({
   routes,
 });
 
-// Navigation Guard
+// Navigation Guard yang disempurnakan
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
-  
-  // Jika store belum terisi, coba fetch user dulu
+
+  // Jika state user belum ada (misal: saat refresh halaman), coba ambil dari server
   if (authStore.user === null) {
     await authStore.fetchUser();
   }
-
+  
   const isAuthenticated = authStore.isAuthenticated;
-  const userRole = authStore.userRole;
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    // Jika butuh login tapi belum login, redirect ke login
+    // Jika halaman butuh login tapi pengguna belum login, arahkan ke halaman Login.
     next({ name: 'Login' });
   } else if (to.meta.guestOnly && isAuthenticated) {
-    // Jika halaman hanya untuk tamu (login/register) tapi sudah login, redirect ke dashboard
+    // Jika halaman login/register diakses oleh pengguna yang sudah login, arahkan ke Dashboard.
     next({ name: 'Dashboard' });
-  } else if (to.meta.requiresAdmin && userRole !== 'admin') {
-    // Jika butuh admin tapi bukan admin, redirect ke dashboard
+  } else if (to.meta.requiresAdmin && authStore.userRole !== 'admin') {
+    // Jika halaman butuh admin tapi pengguna bukan admin, arahkan ke Dashboard.
     next({ name: 'Dashboard' });
-  } else {
-    // Jika semua oke, lanjutkan
+  }
+  else {
+    // Jika semua kondisi terpenuhi, lanjutkan navigasi.
     next();
   }
 });

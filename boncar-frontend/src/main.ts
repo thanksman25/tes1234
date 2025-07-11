@@ -17,7 +17,7 @@ app.use(router);
 const authStore = useAuthStore();
 
 // Coba ambil data pengguna (memeriksa sesi) SEBELUM aplikasi di-mount.
-// Ini mencegah layar berkedip dari halaman login ke dashboard.
+// Ini adalah kunci untuk mencegah race condition.
 authStore.fetchUser().then(() => {
   app.mount('#app');
 });
