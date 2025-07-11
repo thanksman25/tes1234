@@ -12,16 +12,20 @@ class CalculatorController extends Controller
 {
     /**
      * Menampilkan semua proyek kalkulasi milik pengguna.
+     * DITAMBAHKAN: withCount('trees') untuk efisiensi.
      */
     public function index()
     {
-        $projects = Auth::user()->calculationProjects()->latest()->get();
+        $projects = Auth::user()
+            ->calculationProjects()
+            ->withCount('trees') // <-- TAMBAHAN: Menghitung jumlah pohon terkait
+            ->latest()
+            ->get();
+            
         return response()->json($projects);
     }
 
-    /**
-     * Menyimpan proyek kalkulasi baru.
-     */
+    // ... (sisa fungsi lainnya tidak perlu diubah) ...
     public function store(Request $request)
     {
         $validatedData = $request->validate([
@@ -40,21 +44,14 @@ class CalculatorController extends Controller
         return response()->json($project, 201);
     }
 
-    /**
-     * Menampilkan detail satu proyek.
-     */
     public function show(CalculationProject $project)
     {
-        // Pastikan pengguna hanya bisa melihat proyek miliknya sendiri
         $this->authorize('view', $project);
 
         $project->load('trees.species', 'allometricEquation');
         return response()->json($project);
     }
 
-    /**
-     * Menambah data pohon ke dalam proyek.
-     */
     public function addTree(Request $request, CalculationProject $project)
     {
         $this->authorize('update', $project);
@@ -72,9 +69,6 @@ class CalculatorController extends Controller
         return response()->json($tree, 201);
     }
     
-    /**
-     * Menjalankan proses kalkulasi karbon untuk sebuah proyek.
-     */
     public function calculate(CalculationProject $project, CarbonCalculatorService $calculator)
     {
         $this->authorize('update', $project);
@@ -84,13 +78,10 @@ class CalculatorController extends Controller
         return response()->json([
             'message' => 'Calculation successful.',
             'total_carbon_stock_ton' => $totalCarbon,
-            'project' => $project->fresh() // Ambil data proyek terbaru
+            'project' => $project->fresh()
         ]);
     }
 
-    /**
-     * Menghapus proyek.
-     */
     public function destroy(CalculationProject $project)
     {
         $this->authorize('delete', $project);

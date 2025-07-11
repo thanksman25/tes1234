@@ -15,29 +15,30 @@ const handleLogin = async () => {
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    // 1. Panggil action login dan TUNGGU sampai selesai
     await authStore.login({
       email: email.value,
       password: password.value,
     });
 
-    // 2. SETELAH action selesai, periksa state terbaru.
     if (authStore.isAuthenticated) {
-      // 3. BARU arahkan ke Dashboard.
-      router.push({ name: 'Dashboard' });
+      // --- PERBAIKAN DI SINI ---
+      // Cek peran pengguna dan arahkan ke halaman yang sesuai
+      if (authStore.userRole === 'admin') {
+        // Jika admin, arahkan ke halaman Pengguna (Users) sebagai "beranda" admin
+        router.push({ name: 'Users' }); 
+      } else {
+        // Jika pengguna biasa, arahkan ke Dashboard
+        router.push({ name: 'Dashboard' });
+      }
     } else {
-      // Kasus langka jika login berhasil tapi fetchUser gagal
       errorMessage.value = 'Gagal memverifikasi sesi setelah login.';
     }
   } catch (error: any) {
-    // === BLOK YANG DIPERBAIKI ===
-    // Tangani error spesifik dari backend untuk pengalaman pengguna yang lebih baik
-    if (error.response?.status === 403 && error.response?.data?.message === 'Please verify your email address first.') {
+    if (error.response?.status === 403) {
       errorMessage.value = 'Email Anda belum terverifikasi. Silakan cek kotak masuk Anda.';
     } else {
-      errorMessage.value = 'Email atau kata sandi salah, atau akun belum diverifikasi.';
+      errorMessage.value = 'Email atau kata sandi yang Anda masukkan salah.';
     }
-    // === AKHIR BLOK YANG DIPERBAIKI ===
   } finally {
     isLoading.value = false;
   }
@@ -103,150 +104,25 @@ const handleLogin = async () => {
 </template>
 
 <style scoped>
-.login-page {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-image: url('@/assets/images/forest_background.jpg');
-  background-size: cover;
-  background-position: center;
-  font-family: sans-serif;
-  padding: 40px 20px;
-}
-.background-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1;
-}
-.login-container {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-}
-.logo {
-  width: 220px;
-  height: auto;
-  margin-bottom: 16px;
-}
-.title {
-  color: white;
-  font-size: 24px;
-  font-weight: bold;
-  margin: 0;
-}
-.register-link-alt {
-  color: white;
-  margin-top: 4px;
-  margin-bottom: 24px;
-  text-decoration: none;
-  opacity: 0.9;
-}
-.login-card {
-  background-color: #F0F4F1;
-  border-radius: 20px;
-  padding: 24px;
-  width: 100%;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-.card-title {
-  font-size: 20px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 20px;
-  text-align: left;
-}
-.error-message {
-  background-color: #ffdddd;
-  color: #d8000c;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-.input-group {
-  margin-bottom: 16px;
-  text-align: left;
-}
-.input-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #555;
-  font-weight: bold;
-}
-.input-group input {
-  width: 100%;
-  padding: 14px 16px;
-  background-color: #2C8A4A;
-  border: none;
-  border-radius: 30px;
-  color: white;
-  font-size: 16px;
-  text-align: center;
-  transition: background-color 5000s ease-in-out 0s;
-}
-.input-group input::placeholder {
-  color: rgba(255, 255, 255, 0.8);
-}
-.input-group input:-webkit-autofill,
-.input-group input:-webkit-autofill:hover,
-.input-group input:-webkit-autofill:focus,
-.input-group input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 30px #2C8A4A inset !important;
-  -webkit-text-fill-color: white !important;
-  caret-color: white;
-}
-.options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  margin-bottom: 24px;
-}
-.remember-me {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #555;
-}
-.forgot-password {
-  color: #2C8A4A;
-  text-decoration: none;
-  font-weight: bold;
-}
-.login-button {
-  width: auto;
-  padding: 12px 40px;
-  background-color: #2C8A4A;
-  color: white;
-  border: none;
-  border-radius: 30px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  display: block;
-  margin: 0 auto;
-  min-height: 48px;
-}
-.spinner {
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top: 4px solid #fff;
-  width: 24px;
-  height: 24px;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+/* Style tidak berubah, tetap sama seperti sebelumnya */
+.login-page { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-image: url('@/assets/images/forest_background.jpg'); background-size: cover; background-position: center; font-family: sans-serif; padding: 40px 20px; }
+.background-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); z-index: 1; }
+.login-container { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; text-align: center; }
+.logo { width: 220px; height: auto; margin-bottom: 16px; }
+.title { color: white; font-size: 24px; font-weight: bold; margin: 0; }
+.register-link-alt { color: white; margin-top: 4px; margin-bottom: 24px; text-decoration: none; opacity: 0.9; }
+.login-card { background-color: #F0F4F1; border-radius: 20px; padding: 24px; width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.card-title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 20px; text-align: left; }
+.error-message { background-color: #ffdddd; color: #d8000c; padding: 10px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+.input-group { margin-bottom: 16px; text-align: left; }
+.input-group label { display: block; margin-bottom: 8px; font-size: 14px; color: #555; font-weight: bold; }
+.input-group input { width: 100%; padding: 14px 16px; background-color: #2C8A4A; border: none; border-radius: 30px; color: white; font-size: 16px; text-align: center; transition: background-color 5000s ease-in-out 0s; }
+.input-group input::placeholder { color: rgba(255, 255, 255, 0.8); }
+.input-group input:-webkit-autofill, .input-group input:-webkit-autofill:hover, .input-group input:-webkit-autofill:focus, .input-group input:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 30px #2C8A4A inset !important; -webkit-text-fill-color: white !important; caret-color: white; }
+.options { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 24px; }
+.remember-me { display: flex; align-items: center; gap: 6px; color: #555; }
+.forgot-password { color: #2C8A4A; text-decoration: none; font-weight: bold; }
+.login-button { width: auto; padding: 12px 40px; background-color: #2C8A4A; color: white; border: none; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; display: block; margin: 0 auto; min-height: 48px; }
+.spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid #fff; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>

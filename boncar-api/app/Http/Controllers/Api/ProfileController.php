@@ -11,6 +11,7 @@ class ProfileController extends Controller
 {
     /**
      * Display the authenticated user's profile.
+     * Fungsi ini sudah benar, akan mengambil data user yang sedang login.
      */
     public function show(Request $request)
     {
@@ -24,6 +25,7 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
 
+        // Validasi data yang masuk dari form
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
@@ -32,11 +34,12 @@ class ProfileController extends Controller
             'phone_number' => 'nullable|string|max:255',
         ]);
 
+        // Memperbarui data pengguna di database
         $user->update($validatedData);
 
         return response()->json([
-            'message' => 'Profile updated successfully.',
-            'user' => $user,
+            'message' => 'Profil berhasil diperbarui.',
+            'user' => $user, // Mengirim kembali data pengguna yang sudah diperbarui
         ]);
     }
 }

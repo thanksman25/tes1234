@@ -21,6 +21,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
+        // --- TAMBAHAN ---
+        // Kolom-kolom ini ditambahkan agar bisa diisi melalui ProfileController
         'npm_nik',
         'institution',
         'phone_number',
