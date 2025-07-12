@@ -8,22 +8,22 @@ use App\Http\Controllers\Api\FormulaController;
 use App\Http\Controllers\Api\CalculatorController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\EmailVerificationController;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful; // <-- WAJIB DI-IMPORT
 
-// --- RUTE PUBLIK ---
-// Rute ini dapat diakses oleh siapa saja.
+// Rute Publik (tidak memerlukan otentikasi)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-
-// --- RUTE VERIFIKASI EMAIL ---
-// Rute ini harus memiliki middleware 'signed' agar URL aman,
-// namun 'auth:sanctum' DIHAPUS agar pengguna yang belum login bisa mengaksesnya.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-    ->middleware(['signed']) // <-- PERUBAHAN KUNCI ADA DI SINI
-    ->name('verification.verify'); // Nama ini wajib agar Laravel bisa membuat URL verifikasi.
+    ->middleware('signed')
+    ->name('verification.verify');
 
-// --- RUTE YANG MEMBUTUHKAN OTENTIKASI ---
-// Semua rute di dalam grup ini hanya bisa diakses jika pengguna sudah login.
-Route::middleware('auth:sanctum')->group(function () {
+// --- GRUP RUTE OTENTIKASI (STATEFUL API) ---
+// Semua rute di dalam grup ini akan menggunakan otentikasi sesi dari frontend.
+// Ini adalah perbaikan utamanya.
+Route::middleware([
+    EnsureFrontendRequestsAreStateful::class,
+    'auth:sanctum',
+])->group(function () {
     
     Route::post('/logout', [AuthController::class, 'logout']);
     
@@ -31,13 +31,11 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     
-    // Rute untuk mengirim ulang email verifikasi jika pengguna memintanya.
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
-        ->middleware('throttle:6,1') // Batasi pengiriman ulang: 6 kali per menit.
+        ->middleware('throttle:6,1')
         ->name('verification.send');
 
     // --- RUTE YANG MEMBUTUHKAN EMAIL TERVERIFIKASI ---
-    // Semua rute di dalam grup ini hanya bisa diakses jika pengguna sudah login DAN emailnya terverifikasi.
     Route::middleware('verified')->group(function() {
         
         // Profil Pengguna
@@ -58,7 +56,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/species', [SpeciesController::class, 'index']);
 
         // === RUTE KHUSUS ADMIN ===
-        // Rute ini hanya bisa diakses oleh pengguna dengan peran 'admin'.
         Route::middleware('admin')->prefix('admin')->group(function () {
             Route::get('/submissions', [FormulaController::class, 'getSubmissions']);
             Route::post('/submissions/{submission}/approve', [FormulaController::class, 'approve']);
