@@ -1,0 +1,19 @@
+/* Reset CSS sederhana */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Poppins', sans-serif; /* Menggunakan font yang lebih modern */
+  background-color: #f0f4f1;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
