@@ -1,10 +1,10 @@
-<!-- boncar-frontend/src/views/auth/LoginView.vue -->
+// boncar-frontend/src/views/auth/LoginView.vue
+
 <script setup>
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
-// Menggunakan LOGIKA ASLI yang terhubung ke Pinia & API Laravel
 const authStore = useAuthStore();
 const uiStore = useUiStore();
 
@@ -12,15 +12,16 @@ const email = ref('');
 const password = ref('');
 const errorMessage = ref(null);
 
+// Variabel baru untuk fitur tampilkan sandi
+const passwordFieldType = ref('password');
+const isPasswordVisible = ref(false);
+
 const handleLogin = async () => {
+  // Logika login tetap sama
   uiStore.setLoading(true);
   errorMessage.value = null;
   try {
-    await authStore.login({
-      email: email.value,
-      password: password.value,
-    });
-    // Navigasi otomatis ditangani oleh router guard jika sukses
+    await authStore.login({ email: email.value, password: password.value });
   } catch (error) {
     if (error.response && error.response.data.message) {
       errorMessage.value = error.response.data.message;
@@ -30,6 +31,12 @@ const handleLogin = async () => {
   } finally {
     uiStore.setLoading(false);
   }
+};
+
+// Fungsi baru untuk toggle visibilitas sandi
+const togglePasswordVisibility = () => {
+  isPasswordVisible.value = !isPasswordVisible.value;
+  passwordFieldType.value = isPasswordVisible.value ? 'text' : 'password';
 };
 </script>
 
@@ -62,17 +69,24 @@ const handleLogin = async () => {
               required
             >
           </div>
+          
           <div class="input-group">
             <label for="password">Kata Sandi</label>
-            <input 
-              type="password" 
-              id="password" 
-              v-model="password"
-              placeholder="Masukkan Kata Sandi" 
-              required
-            >
+            <div class="password-wrapper">
+              <input 
+                :type="passwordFieldType" 
+                id="password" 
+                v-model="password"
+                placeholder="Masukkan Kata Sandi" 
+                required
+              >
+              <button type="button" @click="togglePasswordVisibility" class="password-toggle">
+                <span class="material-icons">
+                  {{ isPasswordVisible ? 'visibility_off' : 'visibility' }}
+                </span>
+              </button>
+            </div>
           </div>
-
           <div class="options">
             <label class="remember-me">
               <input type="checkbox">
@@ -83,7 +97,7 @@ const handleLogin = async () => {
 
           <button type="submit" :disabled="uiStore.isLoading" class="login-button">
             <span v-if="!uiStore.isLoading">Masuk</span>
-            <span v-else class="spinner"></span>
+            <div v-else class="spinner"></div>
           </button>
         </form>
       </div>
@@ -92,7 +106,7 @@ const handleLogin = async () => {
 </template>
 
 <style scoped>
-/* Menggunakan STYLE dari contoh Anda, dengan path gambar yang benar */
+/* Style sebelumnya sebagian besar tetap sama, dengan tambahan untuk ikon mata */
 .login-page {
   position: relative;
   min-height: 100vh;
@@ -182,6 +196,31 @@ const handleLogin = async () => {
   color: #333;
   font-size: 16px;
 }
+/* CSS BARU UNTUK WRAPPER PASSWORD */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  padding-right: 45px; /* Beri ruang untuk ikon */
+}
+.password-toggle {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* AKHIR CSS BARU */
+
 .options {
   display: flex;
   justify-content: space-between;
@@ -215,6 +254,10 @@ const handleLogin = async () => {
   justify-content: center;
   min-height: 48px;
 }
+.login-button:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
+}
 .spinner {
   border: 4px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
@@ -222,6 +265,7 @@ const handleLogin = async () => {
   width: 24px;
   height: 24px;
   animation: spin 1s linear infinite;
+  display: inline-block;
 }
 @keyframes spin {
   0% { transform: rotate(0deg); }

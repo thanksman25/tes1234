@@ -1,4 +1,7 @@
 /* boncar-frontend/src/assets/main.css */
+/* Mengimpor font Poppins */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 /* Reset CSS sederhana */
 *,
 *::before,
@@ -9,8 +12,8 @@
 }
 
 body {
-  font-family: 'Poppins', sans-serif; /* Menggunakan font yang lebih modern */
-  background-color: #f0f4f1;
+  font-family: 'Poppins', sans-serif;
+  background-color: #f0f4f1; /* Warna dasar untuk latar belakang konten */
 }
 
 #app {

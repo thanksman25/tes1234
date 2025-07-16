@@ -1,6 +1,6 @@
-<!-- boncar-frontend/src/views/auth/RegisterView.vue -->
+// boncar-frontend/src/views/auth/RegisterView.vue
+
 <script setup>
-// Menggunakan LOGIKA ASLI yang terhubung ke API
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '@/api';
@@ -9,7 +9,6 @@ import { useUiStore } from '@/stores/ui';
 const router = useRouter();
 const uiStore = useUiStore();
 
-// Form fields. Backend hanya butuh 'name', bukan 'firstName' dan 'lastName'.
 const name = ref('');
 const email = ref('');
 const password = ref('');
@@ -24,26 +23,29 @@ const handleRegister = async () => {
   successMessage.value = '';
 
   if (password.value !== password_confirmation.value) {
-    errors.value.password_confirmation = ['Konfirmasi kata sandi tidak cocok.'];
+    errors.value.password = ['Konfirmasi kata sandi tidak cocok.'];
     uiStore.setLoading(false);
     return;
   }
 
   try {
     const response = await api.post('/api/register', {
-      name: name.value, // Mengirim satu 'name'
+      name: name.value,
       email: email.value,
       password: password.value,
       password_confirmation: password_confirmation.value,
     });
+
     successMessage.value = response.data.message;
     setTimeout(() => {
       router.push({ name: 'login' });
     }, 3000);
+
   } catch (error) {
     if (error.response && error.response.status === 422) {
       errors.value = error.response.data.errors;
     } else {
+      console.error('Registrasi gagal:', error);
       errors.value.general = ['Terjadi kesalahan pada server. Silakan coba lagi.'];
     }
   } finally {
@@ -66,27 +68,32 @@ const handleRegister = async () => {
           <div v-if="errors.general" class="error-message">
             {{ errors.general[0] }}
           </div>
+          
+          <div class="input-grid">
+            <div class="input-group">
+              <input type="text" v-model="name" placeholder="Nama Lengkap" required>
+              <div v-if="errors.name" class="validation-error">{{ errors.name[0] }}</div>
+            </div>
+            </div>
 
-          <div class="input-group">
-            <input type="text" v-model="name" placeholder="Nama Lengkap" required>
-            <div v-if="errors.name" class="validation-error">{{ errors.name[0] }}</div>
-          </div>
           <div class="input-group">
             <input type="email" v-model="email" placeholder="Email" required>
             <div v-if="errors.email" class="validation-error">{{ errors.email[0] }}</div>
           </div>
-          <div class="input-group">
-            <input type="password" v-model="password" placeholder="Kata Sandi" required>
+
+          <div class="input-group password-group">
+            <label>Kata Sandi</label>
+            <input type="password" v-model="password" placeholder="Minimal 8 karakter" required>
             <div v-if="errors.password" class="validation-error">{{ errors.password[0] }}</div>
           </div>
-          <div class="input-group">
-            <input type="password" v-model="password_confirmation" placeholder="Konfirmasi Kata Sandi" required>
-            <div v-if="errors.password_confirmation" class="validation-error">{{ errors.password_confirmation[0] }}</div>
+          <div class="input-group password-group">
+            <label>Konfirmasi Kata Sandi</label>
+            <input type="password" v-model="password_confirmation" placeholder="Ulangi kata sandi" required>
           </div>
 
-          <button type="submit" :disabled="uiStore.isLoading || successMessage" class="register-button">
+          <button type="submit" :disabled="uiStore.isLoading" class="register-button">
             <span v-if="!uiStore.isLoading">Daftar</span>
-            <span v-else class="spinner"></span>
+            <div v-else class="spinner"></div>
           </button>
         </form>
       </div>
@@ -101,7 +108,6 @@ const handleRegister = async () => {
 </template>
 
 <style scoped>
-/* Style ini sengaja dibuat mirip dengan contoh RegisterPage.vue Anda */
 .register-page {
   position: relative;
   min-height: 100vh;
@@ -128,7 +134,7 @@ const handleRegister = async () => {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 380px;
+  max-width: 420px;
   text-align: center;
 }
 .title {
@@ -140,7 +146,7 @@ const handleRegister = async () => {
 .register-card {
   background-color: #F0F4F1;
   border-radius: 20px;
-  padding: 32px 24px;
+  padding: 24px;
   width: 100%;
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
@@ -151,6 +157,7 @@ const handleRegister = async () => {
 }
 .success-message, .error-message {
   width: 100%;
+  text-align: center;
   padding: 10px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -172,6 +179,12 @@ const handleRegister = async () => {
   padding-left: 5px;
   margin-top: 4px;
 }
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* Diubah menjadi 1 kolom */
+  gap: 16px;
+  width: 100%;
+}
 .input-group {
   margin-bottom: 16px;
   width: 100%;
@@ -184,6 +197,13 @@ const handleRegister = async () => {
   border-radius: 10px;
   color: #333;
   font-size: 16px;
+}
+.password-group label {
+  text-align: left;
+  display: block;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 8px;
 }
 .register-button {
   width: 100%;
@@ -201,6 +221,9 @@ const handleRegister = async () => {
   align-items: center;
   justify-content: center;
 }
+.register-button:disabled {
+  background-color: #a5d6a7;
+}
 .spinner {
   border: 4px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
@@ -208,6 +231,7 @@ const handleRegister = async () => {
   width: 24px;
   height: 24px;
   animation: spin 1s linear infinite;
+  display: inline-block;
 }
 @keyframes spin {
   0% { transform: rotate(0deg); }

@@ -8,7 +8,8 @@ use App\Http\Controllers\Api\FormulaController;
 use App\Http\Controllers\Api\CalculatorController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\EmailVerificationController;
-use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful; // <-- WAJIB DI-IMPORT
+use App\Http\Controllers\Api\DashboardController; // <-- TAMBAHKAN IMPORT INI
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 // Rute Publik (tidak memerlukan otentikasi)
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,9 +18,7 @@ Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 've
     ->middleware('signed')
     ->name('verification.verify');
 
-// --- GRUP RUTE OTENTIKASI (STATEFUL API) ---
-// Semua rute di dalam grup ini akan menggunakan otentikasi sesi dari frontend.
-// Ini adalah perbaikan utamanya.
+// GRUP RUTE OTENTIKASI (STATEFUL API)
 Route::middleware([
     EnsureFrontendRequestsAreStateful::class,
     'auth:sanctum',
@@ -35,7 +34,7 @@ Route::middleware([
         ->middleware('throttle:6,1')
         ->name('verification.send');
 
-    // --- RUTE YANG MEMBUTUHKAN EMAIL TERVERIFIKASI ---
+    // RUTE YANG MEMBUTUHKAN EMAIL TERVERIFIKASI
     Route::middleware('verified')->group(function() {
         
         // Profil Pengguna
@@ -55,11 +54,19 @@ Route::middleware([
         Route::get('/species/search', [SpeciesController::class, 'search']);
         Route::get('/species', [SpeciesController::class, 'index']);
 
+        // === RUTE BARU UNTUK DASHBOARD ===
+        Route::get('/dashboard/user-stats', [DashboardController::class, 'getUserStats']);
+        // ==================================
+
         // === RUTE KHUSUS ADMIN ===
         Route::middleware('admin')->prefix('admin')->group(function () {
             Route::get('/submissions', [FormulaController::class, 'getSubmissions']);
             Route::post('/submissions/{submission}/approve', [FormulaController::class, 'approve']);
             Route::post('/submissions/{submission}/reject', [FormulaController::class, 'reject']);
+            
+            // === RUTE BARU UNTUK DASHBOARD ADMIN ===
+            Route::get('/dashboard/admin-stats', [DashboardController::class, 'getAdminStats']);
+            // =======================================
         });
     });
 });
