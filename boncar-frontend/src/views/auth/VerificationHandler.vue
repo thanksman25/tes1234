@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/views/auth/VerificationHandler.vue -->
 <script setup>
 defineProps({
   success: Boolean

@@ -1,3 +1,4 @@
+// boncar-frontend/src/stores/auth.js
 import { defineStore } from 'pinia';
 import api from '@/api'; // Impor instance Axios kita
 import router from '@/router'; // Impor router untuk redirect

@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/views/admin/AdminDashboardView.vue -->
 <script setup>
 import { useAuthStore } from '@/stores/auth';
 import { computed } from 'vue';

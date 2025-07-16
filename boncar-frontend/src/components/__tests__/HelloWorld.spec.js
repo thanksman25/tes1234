@@ -1,3 +1,4 @@
+// boncar-frontend/src/components/__tests__/HelloWorld.spec.js
 import { describe, it, expect } from 'vitest'
 
 import { mount } from '@vue/test-utils'

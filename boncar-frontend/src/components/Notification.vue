@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/components/Notification.vue -->
 <script setup>
 import { useUiStore } from '@/stores/ui';
 

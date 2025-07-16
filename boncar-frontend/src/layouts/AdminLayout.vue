@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/layouts/AdminLayout.vue -->
 <script setup>
 import Sidebar from '@/components/Sidebar.vue';
 import Notification from '@/components/Notification.vue'; // <-- TAMBAHKAN INI

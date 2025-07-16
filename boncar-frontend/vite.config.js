@@ -1,3 +1,4 @@
+// boncar-frontend/vite.config.js
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'

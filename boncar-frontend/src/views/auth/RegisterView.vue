@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/views/auth/RegisterView.vue -->
 <script setup>
 // Menggunakan LOGIKA ASLI yang terhubung ke API
 import { ref } from 'vue';

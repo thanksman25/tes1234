@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/layouts/DefaultLayout.vue -->
 <script setup>
 import { ref } from 'vue';
 import AppDrawer from '@/components/AppDrawer.vue';

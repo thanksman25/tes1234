@@ -1,3 +1,4 @@
+// boncar-frontend/src/stores/ui.js
 import { defineStore } from 'pinia';
 
 export const useUiStore = defineStore('ui', {

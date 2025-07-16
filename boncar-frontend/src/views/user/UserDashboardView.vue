@@ -1,3 +1,4 @@
+<!-- boncar-frontend/src/views/user/UserDashboardView.vue -->
 <script setup>
 import { useAuthStore } from '@/stores/auth';
 import { computed } from 'vue';
