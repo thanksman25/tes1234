@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\CalculatorController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\DashboardController;
+// --- TAMBAHKAN USE STATEMENT INI ---
+use App\Http\Controllers\Api\Admin\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,7 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // --- Profil Pengguna ---
         Route::get('/profile', [ProfileController::class, 'show']);
-        Route::put('/profile', [ProfileController::class, 'update']); // INI RUTE YANG BERMASALAH
+        Route::put('/profile', [ProfileController::class, 'update']);
 
         // --- Dashboard ---
         Route::get('/dashboard/user-stats', [DashboardController::class, 'getUserStats']);
@@ -87,6 +89,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/formula-submissions', [FormulaController::class, 'getSubmissions']);
             Route::post('/formula-submissions/{submission}/approve', [FormulaController::class, 'approve']);
             Route::post('/formula-submissions/{submission}/reject', [FormulaController::class, 'reject']);
+
+            // --- TAMBAHKAN BLOK KODE INI ---
+            // Manajemen Pengguna
+            Route::apiResource('users', UserController::class)->except(['store']);
+            // ------------------------------------
         });
     });
 });

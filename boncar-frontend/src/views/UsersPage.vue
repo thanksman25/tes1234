@@ -1,27 +1,49 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-
-type Role = 'Pengguna' | 'Admin';
-
-interface User {
-  id: number;
-  fullName: string;
-  username: string;
-  email: string;
-  role: Role;
-}
+import { useUserManagementStore, type User } from '@/store/userManagement';
 
 const router = useRouter();
+const userManagementStore = useUserManagementStore();
+
 const goBack = () => router.back();
 
-// Data dummy untuk pengguna
-const users = ref<User[]>([
-  { id: 1, fullName: 'Liam Chen', username: 'liamc22', email: 'liam.chen22@gmail.com', role: 'Pengguna' },
-  { id: 2, fullName: 'Zoe Kim', username: 'zoekim_', email: 'zoekim.08@gmail.com', role: 'Pengguna' },
-  { id: 3, fullName: 'Noah Tan', username: 'noah_tn', email: 'noah.tan11@gmail.com', role: 'Pengguna' },
-]);
+// Ambil data pengguna saat komponen pertama kali dimuat
+onMounted(() => {
+  userManagementStore.fetchUsers();
+});
 
+// Fungsi untuk mengubah peran pengguna
+const handleEditRole = async (user: User) => {
+  const newRole = user.role === 'admin' ? 'user' : 'admin';
+  if (confirm(`Apakah Anda yakin ingin mengubah peran ${user.name} menjadi ${newRole}?`)) {
+    try {
+      await userManagementStore.updateUserRole(user.id, newRole);
+      alert('Peran pengguna berhasil diperbarui.');
+    } catch (error: any) {
+      alert(error.message || 'Gagal memperbarui peran.');
+    }
+  }
+};
+
+// Fungsi untuk menghapus pengguna
+const handleDeleteUser = async (user: User) => {
+  if (confirm(`PERINGATAN: Apakah Anda yakin ingin menghapus pengguna ${user.name} secara permanen? Tindakan ini tidak dapat dibatalkan.`)) {
+    try {
+      await userManagementStore.deleteUser(user.id);
+      alert('Pengguna berhasil dihapus.');
+    } catch (error: any) {
+      alert(error.message || 'Gagal menghapus pengguna.');
+    }
+  }
+};
+
+// Fungsi untuk navigasi paginasi
+const changePage = (page: number) => {
+  if (page > 0 && page <= userManagementStore.pagination.lastPage) {
+    userManagementStore.fetchUsers(page);
+  }
+};
 </script>
 
 <template>
@@ -35,29 +57,41 @@ const users = ref<User[]>([
       </header>
       <div class="main-card">
         <div class="search-header">
-          <h3>Data Pengguna</h3>
+          <h3>Data Pengguna (Total: {{ userManagementStore.pagination.total }})</h3>
           <div class="search-bar">
             <span class="material-icons">search</span>
-            <input type="text" placeholder="Cari...">
+            <input type="text" placeholder="Cari pengguna...">
           </div>
         </div>
-        <div class="users-list">
-          <div v-for="(user, index) in users" :key="user.id" class="user-card">
-            <div class="info-row"><strong>Nomor:</strong><span>{{ index + 1 }}</span></div>
-            <div class="info-row"><strong>Nama Lengkap:</strong><span>{{ user.fullName }}</span></div>
-            <div class="info-row"><strong>Username:</strong><span>{{ user.username }}</span></div>
+
+        <div v-if="userManagementStore.loading" class="loading-message">
+          Memuat data pengguna...
+        </div>
+        <div v-else-if="userManagementStore.error" class="error-message">
+          {{ userManagementStore.error }}
+        </div>
+        <div v-else-if="userManagementStore.users.length === 0" class="empty-message">
+          Tidak ada data pengguna untuk ditampilkan.
+        </div>
+        
+        <div v-else class="users-list">
+          <div v-for="user in userManagementStore.users" :key="user.id" class="user-card">
+            <div class="info-row"><strong>Nama Lengkap:</strong><span>{{ user.name }}</span></div>
             <div class="info-row"><strong>Email:</strong><span>{{ user.email }}</span></div>
-            <div class="info-row"><strong>Hak Akses:</strong><span>{{ user.role }}</span></div>
+            <div class="info-row"><strong>Hak Akses:</strong>
+              <span class="role-badge" :class="user.role">{{ user.role }}</span>
+            </div>
             <div class="card-footer">
-              <button class="btn btn-edit">Edit</button>
-              <button class="btn btn-delete">Hapus</button>
+              <button @click="handleEditRole(user)" class="btn btn-edit">Ubah Hak Akses</button>
+              <button @click="handleDeleteUser(user)" class="btn btn-delete">Hapus</button>
             </div>
           </div>
         </div>
-        <div class="pagination">
-          <a href="#">&lt;&lt; Previous</a>
-          <span>1 2 3 ... 7 8 9</span>
-          <a href="#">Next &gt;&gt;</a>
+        
+        <div v-if="userManagementStore.pagination.lastPage > 1" class="pagination">
+          <a href="#" @click.prevent="changePage(userManagementStore.pagination.currentPage - 1)" :class="{ disabled: userManagementStore.pagination.currentPage === 1 }">&lt;&lt; Previous</a>
+          <span>Halaman {{ userManagementStore.pagination.currentPage }} dari {{ userManagementStore.pagination.lastPage }}</span>
+          <a href="#" @click.prevent="changePage(userManagementStore.pagination.currentPage + 1)" :class="{ disabled: userManagementStore.pagination.currentPage === userManagementStore.pagination.lastPage }">Next &gt;&gt;</a>
         </div>
       </div>
     </div>
@@ -114,7 +148,7 @@ const users = ref<User[]>([
   width: 100%; background: transparent;
 }
 .users-list {
-  max-height: calc(100vh - 320px);
+  max-height: calc(100vh - 350px); /* Disesuaikan agar pagination muat */
   overflow-y: auto;
   padding-right: 8px;
 }
@@ -128,11 +162,28 @@ const users = ref<User[]>([
 .info-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 8px;
   font-size: 14px;
 }
 .info-row span {
   text-align: right;
+  max-width: 70%;
+}
+.role-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+.role-badge.admin {
+  background-color: #e74c3c;
+  color: white;
+}
+.role-badge.user {
+  background-color: #3498db;
+  color: white;
 }
 .card-footer {
   margin-top: 16px;
@@ -141,11 +192,12 @@ const users = ref<User[]>([
 }
 .btn {
   border: none;
-  padding: 8px 24px;
+  padding: 8px 16px; /* Padding disesuaikan */
   border-radius: 20px;
   color: white;
   font-weight: bold;
   cursor: pointer;
+  font-size: 12px; /* Ukuran font disesuaikan */
 }
 .btn-edit { background-color: #007bff; }
 .btn-delete { background-color: #dc3545; }
@@ -161,5 +213,21 @@ const users = ref<User[]>([
   color: #2C8A4A;
   font-weight: bold;
   text-decoration: none;
+}
+.pagination a.disabled {
+  color: #aaa;
+  pointer-events: none;
+}
+.loading-message, .error-message, .empty-message {
+  text-align: center;
+  padding: 40px;
+  background-color: rgba(240, 240, 240, 0.8);
+  border-radius: 15px;
+  color: #333;
+  font-weight: 500;
+}
+.error-message {
+  background-color: rgba(255, 224, 224, 0.9);
+  color: #d32f2f;
 }
 </style>

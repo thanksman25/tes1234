@@ -1,36 +1,31 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-
-type Status = 'pending' | 'approved' | 'rejected';
-
-interface Submission {
-  id: number;
-  fullName: string;
-  nik: string;
-  institution: string;
-  phone: string;
-  date: string;
-  status: Status;
-}
+import { useSubmissionStore, type Submission } from '@/store/submission';
 
 const router = useRouter();
+const submissionStore = useSubmissionStore();
+
 const goBack = () => router.back();
 
-// Data dummy untuk pengajuan
-const submissions = ref<Submission[]>([
-  { id: 1, fullName: 'Liam Chen', nik: '2308114578990', institution: 'USK', phone: '08xxxxxxx', date: '3 Juni 2025', status: 'pending' },
-  { id: 2, fullName: 'Zoe Kim', nik: '2308188790768', institution: 'USK', phone: '08xxxxxxx', date: '3 Juni 2025', status: 'approved' },
-  { id: 3, fullName: 'Noah Tan', nik: '2308188790768', institution: 'USK', phone: '08xxxxxxx', date: '3 Juni 2025', status: 'rejected' },
-]);
+// Ambil data saat komponen dimuat
+onMounted(() => {
+  submissionStore.fetchSubmissions();
+});
 
 // Helper untuk gaya dan teks status
+type Status = 'pending' | 'approved' | 'rejected';
 const getStatusInfo = (status: Status) => {
   switch (status) {
     case 'pending': return { text: 'Menunggu Verifikasi', color: '#f39c12' };
     case 'approved': return { text: 'Diterima', color: '#27ae60' };
     case 'rejected': return { text: 'Ditolak', color: '#e74c3c' };
   }
+};
+
+const goToDetail = (submission: Submission) => {
+  submissionStore.selectedSubmission = submission;
+  router.push({ name: 'SubmissionDetail', params: { id: submission.id } });
 };
 </script>
 
@@ -51,25 +46,34 @@ const getStatusInfo = (status: Status) => {
             <input type="text" placeholder="Cari...">
           </div>
         </div>
-        <div class="submissions-list">
-          <div v-for="sub in submissions" :key="sub.id" class="submission-card">
-            <div class="info-row"><strong>Nomor:</strong><span>{{ sub.id }}</span></div>
-            <div class="info-row"><strong>Nama Lengkap:</strong><span>{{ sub.fullName }}</span></div>
-            <div class="info-row"><strong>NPM/NIP/NIK:</strong><span>{{ sub.nik }}</span></div>
-            <div class="info-row"><strong>Instansi/Institusi:</strong><span>{{ sub.institution }}</span></div>
-            <div class="info-row"><strong>Nomor HP:</strong><span>{{ sub.phone }}</span></div>
-            <div class="info-row"><strong>Tanggal Pengajuan:</strong><span>{{ sub.date }}</span></div>
+        
+        <div v-if="submissionStore.loading" class="loading-message">
+          Memuat data pengajuan...
+        </div>
+        <div v-else-if="submissionStore.error" class="error-message">
+          {{ submissionStore.error }}
+        </div>
+        <div v-else-if="submissionStore.submissions.length === 0" class="empty-message">
+          Belum ada data pengajuan.
+        </div>
+        
+        <div v-else class="submissions-list">
+          <div v-for="sub in submissionStore.submissions" :key="sub.id" class="submission-card">
+            <div class="info-row"><strong>Nama Rumus:</strong><span>{{ sub.formula_name }}</span></div>
+            <div class="info-row"><strong>Pengaju:</strong><span>{{ sub.user.name }}</span></div>
+            <div class="info-row"><strong>Tanggal:</strong><span>{{ new Date(sub.created_at).toLocaleDateString('id-ID') }}</span></div>
             <div class="card-footer">
               <span class="status-badge" :style="{ backgroundColor: getStatusInfo(sub.status).color }">
                 {{ getStatusInfo(sub.status).text }}
               </span>
-              <a href="#" class="detail-link">Detail</a>
+              <a href="#" @click.prevent="goToDetail(sub)" class="detail-link">Detail</a>
             </div>
           </div>
         </div>
+
         <div class="pagination">
           <a href="#">&lt;&lt; Previous</a>
-          <span>1 2 3 ... 7 8 9</span>
+          <span>1</span>
           <a href="#">Next &gt;&gt;</a>
         </div>
       </div>
@@ -180,5 +184,17 @@ const getStatusInfo = (status: Status) => {
   color: #2C8A4A;
   font-weight: bold;
   text-decoration: none;
+}
+.loading-message, .error-message, .empty-message {
+  text-align: center;
+  padding: 40px;
+  background-color: rgba(240, 240, 240, 0.8);
+  border-radius: 15px;
+  color: #333;
+  font-weight: 500;
+}
+.error-message {
+  background-color: rgba(255, 224, 224, 0.9);
+  color: #d32f2f;
 }
 </style>
