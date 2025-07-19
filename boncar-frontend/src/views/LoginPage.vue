@@ -1,3 +1,5 @@
+// #### File: src/views/LoginPage.vue
+
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -24,21 +26,23 @@ const handleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    // Memanggil action login dari Pinia store
+    // Memanggil action login dari Pinia store yang sudah terhubung ke API
     await authStore.login({
       email: email.value,
       password: password.value,
     });
-
-    // Simulasi login berhasil
-    authStore.token = 'dummy-token-for-dev';
-    authStore.user = { name: 'Pengguna Demo', email: email.value, role: 'umum' };
     
+    // Jika login berhasil, arahkan ke Dashboard
     router.push({ name: 'Dashboard' });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login Gagal:', error);
-    errorMessage.value = 'Login gagal. Periksa kembali email dan kata sandi Anda.';
+    // Menampilkan pesan error yang lebih spesifik dari backend jika ada
+    if (error.response && error.response.data && error.response.data.message) {
+      errorMessage.value = error.response.data.message;
+    } else {
+      errorMessage.value = 'Login gagal. Periksa kembali email dan kata sandi Anda.';
+    }
   } finally {
     isLoading.value = false;
   }

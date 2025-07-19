@@ -1,29 +1,46 @@
+// #### File: src/components/UserDashboard.vue
+
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { useAuthStore } from '@/store/auth';
+import { useDashboardStore } from '@/store/dashboard';
 
 const authStore = useAuthStore();
-// Menggunakan nama dummy sesuai gambar
-const userName = 'Liam Chen';
+const dashboardStore = useDashboardStore();
+
+// Ambil data saat komponen dimuat
+onMounted(() => {
+  dashboardStore.fetchUserStats();
+});
 </script>
 
 <template>
   <div class="user-dashboard">
     <div class="welcome-card">
       <h3>Selamat Datang</h3>
-      <h2>{{ userName }}</h2>
+      <h2>{{ authStore.user?.name || 'Pengguna' }}</h2>
     </div>
-    <div class="stats-grid">
+
+    <div v-if="dashboardStore.loading" class="loading-message">
+      Memuat data statistik...
+    </div>
+
+    <div v-else-if="dashboardStore.error" class="error-message">
+      {{ dashboardStore.error }}
+    </div>
+
+    <div v-else class="stats-grid">
       <div class="stat-card main-stat">
-        <h4>Cadangan Karbon</h4>
-        <p>1,25 Ton/Ha</p>
+        <h4>{{ dashboardStore.userStats[0]?.title || 'Cadangan Karbon' }}</h4>
+        <p>{{ dashboardStore.userStats[0]?.value || '0 Ton/Ha' }}</p>
       </div>
-      <div class="stat-card">
-        <h4>Pohon Yang Dihitung</h4>
-        <p>125</p>
+      <div v-if="dashboardStore.userStats.length > 1" class="stat-card">
+        <h4>{{ dashboardStore.userStats[1]?.title || 'Pohon' }}</h4>
+        <p>{{ dashboardStore.userStats[1]?.value || 0 }}</p>
       </div>
-      <div class="stat-card">
-        <h4>Lokasi Yang Dihitung</h4>
-        <p>125</p>
+      <div v-if="dashboardStore.userStats.length > 2" class="stat-card">
+        <h4>{{ dashboardStore.userStats[2]?.title || 'Lokasi' }}</h4>
+        <p>{{ dashboardStore.userStats[2]?.value || 0 }}</p>
       </div>
     </div>
   </div>
@@ -95,5 +112,19 @@ const userName = 'Liam Chen';
   margin: 0;
   font-size: 1.6em;
   font-weight: bold;
+}
+
+/* Style untuk loading dan error */
+.loading-message, .error-message {
+  text-align: center;
+  padding: 40px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 15px;
+  color: #333;
+  font-weight: 500;
+}
+.error-message {
+  background-color: rgba(255, 224, 224, 0.9);
+  color: #d32f2f;
 }
 </style>

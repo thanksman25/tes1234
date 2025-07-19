@@ -1,4 +1,4 @@
-// src/services/api.ts
+// #### File: src/services/api.ts
 
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth';
@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth';
 // Buat instance Axios
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL, // Ambil URL dari environment variable
+  withCredentials: true, // <-- PASTIKAN BARIS INI ADA
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'

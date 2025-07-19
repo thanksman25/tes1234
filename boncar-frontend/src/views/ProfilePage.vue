@@ -1,3 +1,5 @@
+// #### File: src/views/ProfilePage.vue
+
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
@@ -6,30 +8,68 @@ import { useAuthStore } from '@/store/auth';
 const authStore = useAuthStore();
 const router = useRouter();
 
-// Reactive state untuk form, diisi dengan data dari store
+// State untuk UI
+const isLoading = ref(false);
+const errorMessage = ref('');
+const successMessage = ref('');
+
+// Reactive state untuk form
 const profileData = ref({
   firstName: '',
   lastName: '',
-  username: '',
-  nik: '1234567890123456', // Contoh data
-  institution: 'Universitas Syiah Kuala', // Contoh data
-  phone: '081234567890', // Contoh data
+  username: '', // Username tidak dapat diubah, hanya untuk tampilan
+  nik: '',
+  institution: '',
+  phone: '',
   email: '',
 });
 
+// Mengisi form dengan data dari authStore saat komponen dimuat
 onMounted(() => {
   if (authStore.user) {
     const nameParts = authStore.user.name.split(' ');
     profileData.value.firstName = nameParts[0] || '';
     profileData.value.lastName = nameParts.slice(1).join(' ') || '';
-    profileData.value.username = authStore.user.name.replace(' ', '').toLowerCase(); // Contoh
+    profileData.value.username = authStore.user.name.replace(/\s+/g, '').toLowerCase(); // Contoh username
     profileData.value.email = authStore.user.email;
+    profileData.value.nik = authStore.user.npm_nik || '';
+    profileData.value.institution = authStore.user.institution || '';
+    profileData.value.phone = authStore.user.phone_number || '';
   }
 });
 
-const handleSave = () => {
-  alert('Perubahan disimpan!');
-  // Logika untuk mengirim data ke backend akan ada di sini
+// Fungsi untuk menyimpan perubahan
+const handleSave = async () => {
+  isLoading.value = true;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  try {
+    // 1. Siapkan payload sesuai yang diharapkan backend
+    const payload = {
+      name: `${profileData.value.firstName} ${profileData.value.lastName}`.trim(),
+      email: profileData.value.email,
+      npm_nik: profileData.value.nik,
+      institution: profileData.value.institution,
+      phone_number: profileData.value.phone,
+    };
+    
+    // 2. Panggil action dari authStore
+    await authStore.updateProfile(payload);
+    
+    // 3. Tampilkan pesan sukses
+    successMessage.value = 'Profil berhasil diperbarui!';
+
+  } catch (error: any) {
+    if (error.response && error.response.data && error.response.data.message) {
+      errorMessage.value = error.response.data.message;
+    } else {
+      errorMessage.value = 'Terjadi kesalahan saat menyimpan profil.';
+    }
+    console.error(error);
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const goBack = () => {
@@ -55,14 +95,24 @@ const goBack = () => {
         <a href="#" class="change-password-link">Ganti Sandi Akun</a>
 
         <form @submit.prevent="handleSave" class="profile-form">
-          <div class="input-group">
-            <input type="text" v-model="profileData.firstName" placeholder="Nama Depan">
+          <div v-if="successMessage" class="message success-message">
+            {{ successMessage }}
           </div>
-          <div class="input-group">
-            <input type="text" v-model="profileData.lastName" placeholder="Nama Belakang">
+          <div v-if="errorMessage" class="message error-message">
+            {{ errorMessage }}
           </div>
+
+          <div class="input-grid">
+            <div class="input-group">
+              <input type="text" v-model="profileData.firstName" placeholder="Nama Depan" required>
+            </div>
+            <div class="input-group">
+              <input type="text" v-model="profileData.lastName" placeholder="Nama Belakang" required>
+            </div>
+          </div>
+
           <div class="input-group">
-            <input type="text" v-model="profileData.username" placeholder="Username">
+            <input type="text" v-model="profileData.username" placeholder="Username" disabled>
           </div>
           <div class="input-group">
             <input type="text" v-model="profileData.nik" placeholder="NPM/NIP/NIK">
@@ -74,9 +124,12 @@ const goBack = () => {
             <input type="text" v-model="profileData.phone" placeholder="Nomor HP">
           </div>
           <div class="input-group">
-            <input type="email" v-model="profileData.email" placeholder="Email" readonly>
+            <input type="email" v-model="profileData.email" placeholder="Email" required>
           </div>
-          <button type="submit" class="save-button">Simpan Perubahan</button>
+          <button type="submit" :disabled="isLoading" class="save-button">
+            <span v-if="!isLoading">Simpan Perubahan</span>
+            <span v-else class="spinner"></span>
+          </button>
         </form>
       </div>
     </div>
@@ -175,6 +228,32 @@ const goBack = () => {
   align-items: center;
 }
 
+.message {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.error-message {
+  background-color: #ffdddd;
+  color: #d8000c;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
 .input-group {
   margin-bottom: 16px;
   width: 100%;
@@ -191,15 +270,15 @@ const goBack = () => {
   text-align: center;
 }
 
-.input-group input[readonly] {
+.input-group input:disabled {
   background-color: #6c757d;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .save-button {
-  /* === PERBAIKAN DI SINI === */
-  width: auto; /* Ubah dari 100% menjadi auto */
-  padding: 14px 40px; /* Tambahkan padding horizontal */
+  width: auto;
+  padding: 12px 40px;
   margin-top: 8px;
   background-color: #2C8A4A;
   color: white;
@@ -208,5 +287,23 @@ const goBack = () => {
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 4px solid #fff;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

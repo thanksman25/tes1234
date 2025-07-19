@@ -1,11 +1,13 @@
+// #### File: src/views/RegisterPage.vue
+
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/store/auth';
 
 // Reactive state untuk form
 const firstName = ref('');
 const lastName = ref('');
-const username = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
@@ -13,6 +15,7 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const handleRegister = async () => {
   if (password.value !== confirmPassword.value) {
@@ -24,21 +27,25 @@ const handleRegister = async () => {
   errorMessage.value = '';
 
   try {
-    // Simulasi pemanggilan API untuk registrasi
-    console.log('Mendaftarkan pengguna:', {
-      fullName: `${firstName.value} ${lastName.value}`,
-      username: username.value,
+    // Memanggil action register dari Pinia store
+    await authStore.register({
+      name: `${firstName.value} ${lastName.value}`.trim(),
       email: email.value,
+      password: password.value,
+      password_confirmation: confirmPassword.value,
     });
-    // Menunggu 1.5 detik untuk simulasi delay jaringan
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
     // Arahkan ke halaman login setelah berhasil
-    alert('Pendaftaran berhasil! Silakan login.');
+    alert('Pendaftaran berhasil! Silakan periksa email Anda untuk verifikasi sebelum login.');
     router.push({ name: 'Login' });
 
-  } catch (error) {
-    errorMessage.value = 'Terjadi kesalahan saat pendaftaran.';
+  } catch (error: any) {
+    if (error.response && error.response.data && error.response.data.message) {
+      errorMessage.value = error.response.data.message;
+    } else {
+      errorMessage.value = 'Terjadi kesalahan saat pendaftaran.';
+    }
+    console.error('Registrasi Gagal:', error);
   } finally {
     isLoading.value = false;
   }
@@ -63,9 +70,6 @@ const handleRegister = async () => {
           </div>
           <div class="input-group">
             <input type="text" v-model="lastName" placeholder="Nama Belakang" required>
-          </div>
-          <div class="input-group">
-            <input type="text" v-model="username" placeholder="Username" required>
           </div>
           <div class="input-group">
             <input type="email" v-model="email" placeholder="Email" required>
@@ -97,10 +101,10 @@ const handleRegister = async () => {
 .register-page {
   position: relative;
   min-height: 100vh;
-  display: flex; /* Tambahkan ini */
-  flex-direction: column; /* Tambahkan ini */
-  align-items: center; /* Tambahkan ini */
-  justify-content: center; /* Tambahkan ini */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   background-image: url('@/assets/images/forest_background.jpg');
   background-size: cover;
   background-position: center;

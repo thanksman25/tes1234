@@ -1,3 +1,5 @@
+// #### File: src/components/AppDrawer.vue
+
 <script setup lang="ts">
 import { defineProps, defineEmits } from 'vue';
 import { useRouter } from 'vue-router';
@@ -5,7 +7,7 @@ import { useAuthStore } from '@/store/auth';
 
 defineProps<{
   isOpen: boolean;
-  userRole: 'admin' | 'umum';
+  userRole: 'admin' | 'user'; // Mengubah 'umum' menjadi 'user' agar sesuai
 }>();
 
 const emit = defineEmits(['close']);
@@ -22,14 +24,12 @@ const handleLogout = async () => {
 const adminMenu = [
   { name: 'Beranda', icon: 'home', route: 'Dashboard' },
   { name: 'Pengguna', icon: 'groups', route: 'Users' },
-  // --- PERUBAHAN DI SINI ---
   { name: 'Verifikasi Alometrik', icon: 'fact_check', route: 'AlometricVerification' },
 ];
 
 const userMenu = [
     { name: 'Beranda', icon: 'home', route: 'Dashboard' },
     { name: 'Profil', icon: 'person', route: 'Profile' },
-    // --- PERUBAHAN DI SINI ---
     { name: 'Pengajuan Alometrik Baru', icon: 'post_add', route: 'NewSubmission' },
     { name: 'Kalkulator', icon: 'calculate', route: 'CalculatorForm' },
     { name: 'Rekapitulasi', icon: 'receipt_long', route: 'RecapList' },
@@ -53,7 +53,7 @@ const userMenu = [
           </router-link>
         </template>
         
-        <template v-if="userRole === 'umum'">
+        <template v-if="userRole === 'user'">
            <router-link v-for="item in userMenu" :key="item.name" :to="{ name: item.route }" @click="emit('close')">
             <span class="material-icons">{{ item.icon }}</span>
             {{ item.name }}

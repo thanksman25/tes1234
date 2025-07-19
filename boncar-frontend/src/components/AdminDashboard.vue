@@ -1,10 +1,15 @@
+// #### File: src/components/AdminDashboard.vue
+
 <script setup lang="ts">
-// Data dummy untuk statistik admin sesuai gambar
-const stats = [
-  { title: 'Pengguna', value: 73 },
-  { title: 'File Belum Diproses', value: 10 },
-  { title: 'Rumus Alometrik', value: 5 },
-];
+import { onMounted } from 'vue';
+import { useDashboardStore } from '@/store/dashboard';
+
+const dashboardStore = useDashboardStore();
+
+// Ambil data saat komponen dimuat
+onMounted(() => {
+  dashboardStore.fetchAdminStats();
+});
 </script>
 
 <template>
@@ -13,8 +18,17 @@ const stats = [
       <h3>Selamat Datang</h3>
       <h2>Administrator</h2>
     </div>
-    <div class="stats-grid">
-      <div v-for="stat in stats" :key="stat.title" class="stat-card">
+
+    <div v-if="dashboardStore.loading" class="loading-message">
+      Memuat data statistik...
+    </div>
+
+    <div v-else-if="dashboardStore.error" class="error-message">
+      {{ dashboardStore.error }}
+    </div>
+    
+    <div v-else class="stats-grid">
+      <div v-for="stat in dashboardStore.adminStats" :key="stat.title" class="stat-card">
         <div class="stat-title">{{ stat.title }}</div>
         <div class="stat-value">{{ stat.value }}</div>
       </div>
@@ -77,5 +91,19 @@ const stats = [
 .stat-value {
   font-size: 2em;
   font-weight: bold;
+}
+
+/* Style untuk loading dan error */
+.loading-message, .error-message {
+  text-align: center;
+  padding: 40px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 15px;
+  color: #333;
+  font-weight: 500;
+}
+.error-message {
+  background-color: rgba(255, 224, 224, 0.9);
+  color: #d32f2f;
 }
 </style>

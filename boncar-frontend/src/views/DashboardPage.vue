@@ -1,3 +1,5 @@
+// #### File: src/views/DashboardPage.vue
+
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useAuthStore } from '@/store/auth';
@@ -16,23 +18,10 @@ const userRole = computed(() => authStore.user?.role || 'umum');
 const toggleDrawer = () => {
   drawerOpen.value = !drawerOpen.value;
 };
-
-// Mengubah data user menjadi admin untuk keperluan demo
-const switchToAdmin = () => {
-  if (authStore.user) authStore.user.role = 'admin';
-};
-
-const switchToUser = () => {
-  if (authStore.user) authStore.user.role = 'umum';
-}
 </script>
 
 <template>
   <div class="dashboard-layout">
-    <div class="demo-switchers">
-      <button @click="switchToUser">Lihat sbg User</button>
-      <button @click="switchToAdmin">Lihat sbg Admin</button>
-    </div>
     
     <AppDrawer :is-open="drawerOpen" :user-role="userRole" @close="drawerOpen = false" />
     
@@ -97,18 +86,4 @@ const switchToUser = () => {
   top: 0; left: 0; right: 0; bottom: 0;
   background-color: rgba(0, 0, 0, 0.1);
 }
-
-.demo-switchers {
-  position: fixed;
-  bottom: 10px;
-  right: 10px;
-  z-index: 1000;
-  background: rgba(255,255,255,0.8);
-  padding: 5px;
-  border-radius: 5px;
-}
-.demo-switchers button {
-  margin: 0 5px;
-}
-
 </style>
