@@ -9,57 +9,68 @@ use Illuminate\Support\Facades\Http;
 
 class SpeciesController extends Controller
 {
-    /**
-     * Mengambil daftar spesies dari database LOKAL.
-     */
-    public function index()
-    {
-        return Species::orderBy('name')->get();
-    }
-
-    /**
-     * Mencari spesies secara real-time.
-     */
     public function search(Request $request)
     {
-        $query = $request->query('q');
+        $request->validate(['q' => 'required|string|min:2']);
 
-        if (!$query) {
-            return response()->json([]);
-        }
+        // 1. Cari di database lokal dulu
+        $localResults = Species::where('name', 'like', "%{$request->q}%")
+            ->orWhere('scientific_name', 'like', "%{$request->q}%")
+            ->limit(5)
+            ->get()
+            ->map(function ($species) {
+                return [
+                    ...$species->toArray(),
+                    'is_local' => true
+                ];
+            });
 
-        // 1. Cari dulu di database lokal kita untuk kecepatan
-        $localResults = Species::where('name', 'like', "%{$query}%")
-            ->orWhere('scientific_name', 'like', "%{$query}%")
-            ->limit(10)
-            ->get();
-
-        // Jika di lokal sudah ditemukan, langsung kembalikan hasilnya
         if ($localResults->isNotEmpty()) {
-            return response()->json($localResults);
+            return $localResults;
         }
 
-        // 2. Jika tidak ada di lokal, baru cari ke API iNaturalist sebagai fallback
-        $response = Http::get('https://api.inaturalist.org/v1/taxa/autocomplete', [
-            'q' => $query,
-            'is_active' => 'true',
-            'taxon_id' => 47126,
+        // 2. Fallback ke iNaturalist API
+        try {
+            $response = Http::get('https://api.inaturalist.org/v1/taxa/autocomplete', [
+                'q' => $request->q,
+                'is_active' => 'true',
+                'taxon_id' => 47126 // Filter untuk tanaman
+            ]);
+
+            return collect($response->json()['results'])->map(function ($item) {
+                return [
+                    'id' => null,
+                    'name' => $item['preferred_common_name'] ?? $item['name'],
+                    'scientific_name' => $item['name'],
+                    'inaturalist_id' => $item['id'],
+                    'description' => $item['wikipedia_summary'] ?? null,
+                    'family' => $item['ancestors'][1]['name'] ?? null,
+                    'is_local' => false
+                ];
+            });
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to search species'], 500);
+        }
+    }
+
+    public function storeFromInaturalist(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'scientific_name' => 'required|string|max:255',
+            'inaturalist_id' => 'required|integer',
+            'description' => 'nullable|string',
+            'family' => 'nullable|string|max:255'
         ]);
 
-        if ($response->failed()) {
-            return response()->json(['message' => 'Failed to search from external API.'], 500);
+        try {
+            $species = Species::createOrUpdateFromInaturalist($validated);
+            return response()->json($species, 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to save species',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        
-        // Format hasil dari iNaturalist agar seragam dengan data lokal kita
-        $formattedResults = collect($response->json()['results'])->map(function ($item) {
-            return [
-                'id' => null, // Tandakan ini bukan dari DB lokal
-                'name' => $item['preferred_common_name'] ?? $item['name'],
-                'scientific_name' => $item['name'],
-                'inaturalist_id' => $item['id'],
-            ];
-        });
-
-        return response()->json($formattedResults);
     }
 }

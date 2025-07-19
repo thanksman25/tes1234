@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import api from '@/services/api'; // Impor instance API Axios
+import api from '@/services/api';
 
 const router = useRouter();
 
@@ -10,12 +10,12 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 
-// State untuk form, termasuk kolom deskripsi baru
+// State untuk form
 const formData = ref({
   formula_name: '',
   equation_template: '',
   reference: '',
-  description: '', // Kolom baru ditambahkan di sini
+  description: '',
 });
 const selectedFile = ref<File | null>(null);
 const fileName = ref('');
@@ -24,7 +24,6 @@ const goBack = () => {
   router.back();
 };
 
-// Fungsi untuk menangani perubahan file
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files[0]) {
@@ -32,7 +31,7 @@ const handleFileChange = (event: Event) => {
     if (file.type === 'application/pdf' && file.size <= 2048 * 1024) {
       selectedFile.value = file;
       fileName.value = file.name;
-      errorMessage.value = ''; // Hapus pesan error jika file valid
+      errorMessage.value = '';
     } else {
       target.value = '';
       selectedFile.value = null;
@@ -46,10 +45,17 @@ const handleFileChange = (event: Event) => {
   }
 };
 
-// Fungsi untuk menangani pengiriman form
 const handleSubmit = async () => {
   errorMessage.value = '';
   successMessage.value = '';
+
+  // Validasi form
+  if (!formData.value.formula_name || 
+      !formData.value.equation_template || 
+      !formData.value.reference) {
+    errorMessage.value = 'Semua field wajib diisi kecuali deskripsi.';
+    return;
+  }
 
   if (!selectedFile.value) {
     errorMessage.value = 'Mohon unggah berkas pendukung.';
@@ -58,37 +64,38 @@ const handleSubmit = async () => {
 
   isLoading.value = true;
 
-  const submissionData = new FormData();
-  submissionData.append('formula_name', formData.value.formula_name);
-  submissionData.append('equation_template', formData.value.equation_template);
-  submissionData.append('reference', formData.value.reference);
-  submissionData.append('description', formData.value.description); // Menambahkan deskripsi ke data yang dikirim
-  submissionData.append('supporting_document', selectedFile.value);
-
   try {
-    await api.post('/formulas/submit', submissionData, {
+    const formDataObj = new FormData();
+    formDataObj.append('formula_name', formData.value.formula_name);
+    formDataObj.append('equation_template', formData.value.equation_template);
+    formDataObj.append('reference', formData.value.reference);
+    formDataObj.append('description', formData.value.description);
+    formDataObj.append('supporting_document', selectedFile.value);
+
+    const response = await api.post('/formulas/submit', formDataObj, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
 
-    successMessage.value = 'Pengajuan berhasil dikirim! Anda akan dialihkan ke Beranda.';
-    
-    setTimeout(() => {
-      router.push({ name: 'Dashboard' });
-    }, 2000);
-
+    if (response.data) {
+      successMessage.value = 'Pengajuan berhasil dikirim! Anda akan dialihkan ke Beranda.';
+      setTimeout(() => {
+        router.push({ name: 'Dashboard' });
+      }, 2000);
+    }
   } catch (error: any) {
-    if (error.response?.data?.errors) {
-      const errors = error.response.data.errors;
-      const firstErrorKey = Object.keys(errors)[0];
-      errorMessage.value = errors[firstErrorKey][0];
-    } else if (error.response?.data?.message) {
+    console.error('Error submitting formula:', error);
+    if (error.response?.data?.message) {
       errorMessage.value = error.response.data.message;
+    } else if (error.response?.data?.errors) {
+      // Handle validation errors
+      const errors = error.response.data.errors;
+      const firstError = Object.values(errors)[0];
+      errorMessage.value = Array.isArray(firstError) ? firstError[0] : 'Terjadi kesalahan validasi.';
     } else {
       errorMessage.value = 'Terjadi kesalahan saat mengirim pengajuan.';
     }
-    console.error(error);
   } finally {
     isLoading.value = false;
   }
@@ -116,32 +123,64 @@ const handleSubmit = async () => {
 
           <div class="input-group">
             <label for="formulaName">Nama Rumus (Contoh: "Chave et al. (2014)")</label>
-            <input id="formulaName" type="text" v-model="formData.formula_name" required>
+            <input 
+              id="formulaName" 
+              type="text" 
+              v-model="formData.formula_name" 
+              required
+              maxlength="255"
+            >
           </div>
           <div class="input-group">
             <label for="formula">Rumus</label>
-            <input id="formula" type="text" v-model="formData.equation_template" placeholder="e.g., 0.11 * DBH^2.5" required>
+            <input 
+              id="formula" 
+              type="text" 
+              v-model="formData.equation_template" 
+              placeholder="e.g., 0.11 * DBH^2.5" 
+              required
+            >
           </div>
           <div class="input-group">
             <label for="reference">Sumber/Referensi</label>
-            <input id="reference" type="text" v-model="formData.reference" required>
+            <input 
+              id="reference" 
+              type="text" 
+              v-model="formData.reference" 
+              required
+              maxlength="255"
+            >
           </div>
           
           <div class="input-group">
             <label for="description">Deskripsi Tambahan</label>
-            <textarea id="description" v-model="formData.description" rows="3" placeholder="Jelaskan secara singkat tentang rumus ini..."></textarea>
+            <textarea 
+              id="description" 
+              v-model="formData.description" 
+              rows="3" 
+              placeholder="Jelaskan secara singkat tentang rumus ini..."
+            ></textarea>
           </div>
           
           <div class="input-group">
             <label>Upload Berkas Pendukung (PDF, maks 2MB)</label>
             <label class="file-upload-label">
-              <input type="file" @change="handleFileChange" accept=".pdf" required>
+              <input 
+                type="file" 
+                @change="handleFileChange" 
+                accept=".pdf" 
+                required
+              >
               <span class="file-upload-button">Pilih File</span>
               <span class="file-name">{{ fileName || 'Tidak ada file dipilih' }}</span>
             </label>
           </div>
 
-          <button type="submit" :disabled="isLoading" class="submit-button">
+          <button 
+            type="submit" 
+            :disabled="isLoading" 
+            class="submit-button"
+          >
             <span v-if="!isLoading">Kirim</span>
             <span v-else class="spinner"></span>
           </button>
@@ -197,7 +236,9 @@ const handleSubmit = async () => {
   color: #d8000c;
 }
 
-.input-group { margin-bottom: 20px; }
+.input-group { 
+  margin-bottom: 20px; 
+}
 .input-group label {
   display: block; margin-bottom: 8px; color: #555; font-weight: 500;
   font-size: 14px;
@@ -206,13 +247,12 @@ const handleSubmit = async () => {
 .input-group textarea {
   width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px;
   font-size: 16px;
-  font-family: inherit; /* Pastikan font sama */
+  font-family: inherit;
 }
 .input-group textarea {
-  resize: vertical; /* Biarkan pengguna menyesuaikan tinggi textarea */
+  resize: vertical;
 }
 
-/* Custom File Upload */
 .file-upload-label {
   display: flex;
   align-items: center;
@@ -221,7 +261,6 @@ const handleSubmit = async () => {
   overflow: hidden;
   cursor: pointer;
 }
-/* PERBAIKAN DI SINI: Menyembunyikan input file asli */
 .file-upload-label input[type="file"] {
   display: none;
 }
