@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\CalculationProject;
+use App\Models\Tree;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
+use Illuminate\Support\Facades\Log;
 
 class CarbonCalculatorService
 {
@@ -16,32 +18,74 @@ class CarbonCalculatorService
 
     public function calculate(CalculationProject $project)
     {
-        $equation = $project->allometricEquation->equation_template;
-        $totalBiomass = 0;
+        $totalCarbonStockKg = 0;
 
-        foreach ($project->trees as $tree) {
-            // Variabel yang bisa digunakan di rumus: D (diameter), H (tinggi), p (kerapatan kayu)
+        // Muat semua pohon beserta relasi rumusnya untuk efisiensi
+        $trees = $project->trees()->with('allometricEquation')->get();
+
+        foreach ($trees as $tree) {
+            if (!$tree->allometricEquation) {
+                Log::warning("Pohon ID {$tree->id} tidak memiliki relasi rumus, dilewati.");
+                continue;
+            }
+            
+            // Ambil keliling dari parameter
+            $keliling = $tree->parameters['circumference'] ?? 0;
+
+            // Variabel dasar dari data pohon
             $formulaVars = [
-                'D' => $tree->parameters['diameter'] ?? 0,
+                'K' => $keliling,
+                // Hitung Diameter secara otomatis jika Keliling ada
+                'D' => ($keliling > 0) ? $keliling / M_PI : 0,
                 'H' => $tree->parameters['height'] ?? 0,
                 'p' => $tree->parameters['wood_density'] ?? 0,
+                'AGB' => 0, // Inisialisasi
+                'BGB' => 0, // Inisialisasi
             ];
 
-            $biomassPerTree = $this->expressionLanguage->evaluate($equation, $formulaVars);
-            $totalBiomass += $biomassPerTree;
+            // 1. Hitung AGB (Above Ground Biomass)
+            $agbFormula = $tree->allometricEquation->formula_agb ?: $tree->allometricEquation->equation_template;
+            if ($agbFormula) {
+                try {
+                    $formulaVars['AGB'] = $this->expressionLanguage->evaluate($agbFormula, $formulaVars);
+                } catch (\Exception $e) {
+                    Log::error("Error evaluasi AGB untuk pohon ID {$tree->id}: ".$e->getMessage());
+                    continue; // Lewati pohon ini jika rumus error
+                }
+            }
+
+            // 2. Hitung BGB (Below Ground Biomass)
+            $bgbFormula = $tree->allometricEquation->formula_bgb;
+            if ($bgbFormula) {
+                 try {
+                    $formulaVars['BGB'] = $this->expressionLanguage->evaluate($bgbFormula, $formulaVars);
+                } catch (\Exception $e) {
+                    Log::error("Error evaluasi BGB untuk pohon ID {$tree->id}: ".$e->getMessage());
+                    continue;
+                }
+            }
+
+            // 3. Hitung Total Karbon untuk pohon ini
+            $carbonFormula = $tree->allometricEquation->formula_carbon;
+            $carbonPerTreeKg = 0;
+            if ($carbonFormula) {
+                try {
+                    $carbonPerTreeKg = $this->expressionLanguage->evaluate($carbonFormula, $formulaVars);
+                } catch (\Exception $e) {
+                    Log::error("Error evaluasi Karbon untuk pohon ID {$tree->id}: ".$e->getMessage());
+                    continue;
+                }
+            }
+            
+            $totalCarbonStockKg += $carbonPerTreeKg;
         }
 
-        // Standar IPCC, biomassa bawah tanah (BGB) adalah 26% dari atas tanah (AGB) untuk hutan tropis
-        $totalBiomassWithBGB = $totalBiomass * 1.26;
-
-        // Faktor konversi dari total biomassa ke karbon (standar IPCC 0.47)
-        $carbonStockInKg = $totalBiomassWithBGB * 0.47;
-
         // Konversi dari Kg ke Ton
-        $carbonStockInTon = $carbonStockInKg / 1000;
+        $totalCarbonStockTon = $totalCarbonStockKg / 1000;
+        
+        // Simpan hasil akhir ke proyek
+        $project->update(['total_carbon_stock' => $totalCarbonStockTon]);
 
-        $project->update(['total_carbon_stock' => $carbonStockInTon]);
-
-        return $carbonStockInTon;
+        return $totalCarbonStockTon;
     }
 }

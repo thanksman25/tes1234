@@ -7,6 +7,7 @@ use App\Models\AllometricEquation;
 use App\Models\FormulaSubmission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class FormulaController extends Controller
@@ -16,7 +17,7 @@ class FormulaController extends Controller
      */
     public function index()
     {
-        $equations = AllometricEquation::all();
+        $equations = AllometricEquation::orderBy('name', 'asc')->get();
         return response()->json($equations);
     }
 
@@ -29,7 +30,8 @@ class FormulaController extends Controller
             'formula_name' => 'required|string|max:255',
             'equation_template' => 'required|string',
             'reference' => 'required|string|max:255',
-            'supporting_document' => 'required|file|mimes:pdf|max:2048', // Maks 2MB
+            'description' => 'nullable|string',
+            'supporting_document' => 'required|file|mimes:pdf|max:2048',
         ]);
 
         $filePath = $request->file('supporting_document')->store('formula_submissions', 'public');
@@ -39,6 +41,7 @@ class FormulaController extends Controller
             'formula_name' => $validatedData['formula_name'],
             'equation_template' => $validatedData['equation_template'],
             'reference' => $validatedData['reference'],
+            'description' => $validatedData['description'],
             'supporting_document_path' => $filePath,
             'status' => 'pending',
         ]);
@@ -49,11 +52,46 @@ class FormulaController extends Controller
     // --- METODE KHUSUS ADMIN ---
 
     /**
+     * (Admin) Membuat rumus alometrik baru secara langsung.
+     */
+    public function store(Request $request)
+    {
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+            'reference' => 'required|string|max:255',
+            'formula_agb' => 'required|string',
+            'formula_bgb' => 'required|string',
+            'formula_carbon' => 'required|string',
+            'required_parameters' => 'nullable|array', // Aturan validasi yang diperbaiki
+        ]);
+
+        // Validasi manual untuk isi array
+        if (isset($validatedData['required_parameters'])) {
+            foreach ($validatedData['required_parameters'] as $param) {
+                if (!in_array($param, ['circumference', 'height', 'wood_density'])) {
+                    return response()->json(['message' => "Invalid parameter: {$param}"], 422);
+                }
+            }
+        }
+
+        $equation = AllometricEquation::create($validatedData);
+
+        return response()->json($equation, 201);
+    }
+
+    /**
+     * (Admin) Mengambil detail satu rumus (untuk halaman edit).
+     */
+    public function show(AllometricEquation $equation)
+    {
+        return response()->json($equation);
+    }
+    
+    /**
      * (Admin) Mengambil semua pengajuan rumus.
      */
     public function getSubmissions()
     {
-        // Ambil pengajuan beserta data pengguna yang mengajukan
         $submissions = FormulaSubmission::with('user:id,name,email')->latest()->get();
         return response()->json($submissions);
     }
@@ -67,15 +105,17 @@ class FormulaController extends Controller
             return response()->json(['message' => 'This submission has already been reviewed.'], 409);
         }
 
-        // Buat record baru di tabel rumus aktif
         $equation = AllometricEquation::create([
             'name' => $submission->formula_name,
             'equation_template' => $submission->equation_template,
             'reference' => $submission->reference,
             'submission_id' => $submission->id,
+            'formula_agb' => $submission->equation_template,
+            'formula_bgb' => 'AGB * 0.26',
+            'formula_carbon' => '(AGB + BGB) * 0.47',
+            'required_parameters' => ['circumference'],
         ]);
 
-        // Update status pengajuan
         $submission->update([
             'status' => 'approved',
             'reviewed_by' => Auth::id(),
@@ -104,5 +144,61 @@ class FormulaController extends Controller
         ]);
 
         return response()->json(['message' => 'Submission has been rejected.']);
+    }
+
+    /**
+     * (Admin) Mengupdate data rumus alometrik yang sudah ada.
+     */
+    public function update(Request $request, AllometricEquation $equation)
+    {
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+            'reference' => 'required|string|max:255',
+            'formula_agb' => 'required|string',
+            'formula_bgb' => 'required|string',
+            'formula_carbon' => 'required|string',
+            'required_parameters' => 'nullable|array', // Aturan validasi yang diperbaiki
+        ]);
+        
+        // Validasi manual untuk isi array
+        if (isset($validatedData['required_parameters'])) {
+            foreach ($validatedData['required_parameters'] as $param) {
+                if (!in_array($param, ['circumference', 'height', 'wood_density'])) {
+                    // Berikan pesan error yang jelas jika ada parameter yang tidak valid
+                    return response()->json([
+                        'message' => 'The given data was invalid.',
+                        'errors' => [
+                            'required_parameters' => ["Invalid parameter selected: {$param}"]
+                        ]
+                    ], 422);
+                }
+            }
+        }
+        
+        $validatedData['equation_template'] = null;
+
+        $equation->update($validatedData);
+
+        return response()->json([
+            'message' => 'Formula updated successfully.',
+            'equation' => $equation,
+        ]);
+    }
+
+    /**
+     * (Admin) Menghapus rumus alometrik.
+     */
+    public function destroy(AllometricEquation $equation)
+    {
+        $isUsedInProjects = DB::table('calculation_projects')->where('allometric_equation_id', $equation->id)->exists();
+        $isUsedInTrees = DB::table('trees')->where('allometric_equation_id', $equation->id)->exists();
+
+        if ($isUsedInProjects || $isUsedInTrees) {
+            return response()->json(['message' => 'Cannot delete formula because it is currently used in a calculation project.'], 409);
+        }
+
+        $equation->delete();
+
+        return response()->noContent();
     }
 }

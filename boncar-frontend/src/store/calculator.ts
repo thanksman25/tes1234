@@ -1,67 +1,143 @@
+// #### File: src/store/calculator.ts
+
 import { defineStore } from 'pinia';
+import api from '@/services/api';
+import axios from 'axios';
 
-// Definisikan tipe data agar lebih terstruktur
-export enum Equation {
-  BrownDry = 'BrownDry',
-  BrownMoist = 'BrownMoist',
-  BrownWet = 'BrownWet',
-  ShoreaLeprosula = 'ShoreaLeprosula',
-  Dipterocarpus = 'Dipterocarpus',
-  SwieteniaMacrophylla = 'SwieteniaMacrophylla',
-  MangiferaIndica = 'MangiferaIndica',
-  AcaciaMangium = 'AcaciaMangium',
-  // Rumus Chave dihapus dari enum
+const WILAYAH_API_URL = 'https://thanksman25.github.io/api-wilayah-indonesia/api';
+
+interface Wilayah {
+  id: string;
+  name: string;
 }
 
-export interface ProjectData {
-  namaHutan: string;
-  luasArea: number;
-  provinsi: string;
-  kabupaten: string;
-  kecamatan: string;
-  desa: string;
-  selectedMethod: 'sensus' | 'sampling';
-  defaultClimate: Equation;
-}
-
-export interface Tree {
+export interface AllometricEquation {
   id: number;
   name: string;
-  species: string;
-  circumference: number; // in cm
-  height?: number; // in m, optional
-  woodDensity?: number; // in g/cm³, optional
-  selectedEquation: Equation;
+  equation_template: string;
+  reference: string;
+}
+
+export interface ProjectDetails {
+  project_name: string;
+  province: string;
+  city: string;
+  district: string;
+  village: string;
+  land_area: number;
+  method: 'census' | 'sampling';
+  default_equation_id: number;
+}
+
+// TIPE DATA POHON DIPERBARUI UNTUK PENCARIAN
+export interface TreeData {
+  id: number; // ID unik di frontend
+  name: string; // Nama opsional dari pengguna, misal "Pohon #1"
+  species_search_term: string; // Teks yang diketik pengguna di input pencarian
+  species_id: number | null; // ID spesies dari DB kita setelah dipilih
+  allometric_equation_id: number;
+  circumference: number;
+  height?: number;
 }
 
 interface CalculationResults {
-  totalBiomass: number;
-  totalCarbon: number;
-  detailedTreeResults: any[];
+  total_carbon_stock_ton: number;
+  project: any;
 }
 
+interface CalculatorState {
+  projectDetails: ProjectDetails | null;
+  trees: TreeData[];
+  availableEquations: AllometricEquation[];
+  results: CalculationResults | null;
+  loading: boolean;
+  error: string | null;
+  provinces: Wilayah[];
+  regencies: Wilayah[];
+  districts: Wilayah[];
+  villages: Wilayah[];
+  loadingWilayah: boolean;
+}
+
+export const BrownEquationIDs = {
+  Dry: 1,
+  Moist: 2,
+  Wet: 3,
+};
+
 export const useCalculatorStore = defineStore('calculator', {
-  state: () => ({
-    projectData: null as ProjectData | null,
-    trees: [] as Tree[],
-    results: null as CalculationResults | null,
+  state: (): CalculatorState => ({
+    projectDetails: null,
+    trees: [],
+    availableEquations: [],
+    results: null,
+    loading: false,
+    error: null,
+    provinces: [],
+    regencies: [],
+    districts: [],
+    villages: [],
+    loadingWilayah: false,
   }),
+
   actions: {
-    setProjectData(data: ProjectData) {
-      this.projectData = data;
+    // Aksi Wilayah tetap sama
+    async fetchProvinces() {
+      if (this.provinces.length) return;
+      this.loadingWilayah = true;
+      try {
+        const { data } = await axios.get(`${WILAYAH_API_URL}/provinces.json`);
+        this.provinces = data;
+      } catch (e) { console.error('Gagal fetch provinsi:', e); } 
+      finally { this.loadingWilayah = false; }
+    },
+    async fetchRegencies(provinceId: string) {
+      this.regencies = []; this.districts = []; this.villages = [];
+      this.loadingWilayah = true;
+      try {
+        const { data } = await axios.get(`${WILAYAH_API_URL}/regencies/${provinceId}.json`);
+        this.regencies = data;
+      } catch (e) { console.error('Gagal fetch kabupaten:', e); }
+      finally { this.loadingWilayah = false; }
+    },
+    async fetchDistricts(regencyId: string) {
+      this.districts = []; this.villages = [];
+      this.loadingWilayah = true;
+      try {
+        const { data } = await axios.get(`${WILAYAH_API_URL}/districts/${regencyId}.json`);
+        this.districts = data;
+      } catch (e) { console.error('Gagal fetch kecamatan:', e); }
+      finally { this.loadingWilayah = false; }
+    },
+    async fetchVillages(districtId: string) {
+      this.villages = [];
+      this.loadingWilayah = true;
+      try {
+        const { data } = await axios.get(`${WILAYAH_API_URL}/villages/${districtId}.json`);
+        this.villages = data;
+      } catch (e) { console.error('Gagal fetch desa:', e); }
+      finally { this.loadingWilayah = false; }
+    },
+    
+    setProjectDetails(details: ProjectDetails) {
+      this.projectDetails = details;
       this.trees = [];
       this.addTree();
     },
+
     addTree() {
-      const newTree: Tree = {
+      if (!this.projectDetails) return;
+      const newTree: TreeData = {
         id: Date.now() + Math.random(),
         name: '',
-        species: '',
+        species_search_term: '',
+        species_id: null,
+        allometric_equation_id: this.projectDetails.default_equation_id,
         circumference: 0,
-        selectedEquation: this.projectData?.defaultClimate || Equation.BrownMoist,
       };
       this.trees.push(newTree);
     },
+    
     removeTree(treeId: number) {
       if (this.trees.length > 1) {
         this.trees = this.trees.filter(tree => tree.id !== treeId);
@@ -69,59 +145,60 @@ export const useCalculatorStore = defineStore('calculator', {
         alert('Minimal harus ada satu data pohon.');
       }
     },
-    calculateResults() {
-      if (!this.projectData || this.trees.length === 0) return;
 
-      let totalBiomassKg = 0;
-      let totalCarbonKg = 0;
-      const detailedTreeResults = [];
-
-      for (const tree of this.trees) {
-        if (tree.circumference <= 0) continue;
-        const diameterCm = tree.circumference / Math.PI;
-
-        let biomassKg = 0;
-        // Kasus untuk Chave dihapus dari switch
-        switch (tree.selectedEquation) {
-            case Equation.BrownDry: biomassKg = 0.139 * Math.pow(diameterCm, 2.32); break;
-            case Equation.BrownMoist: biomassKg = 0.118 * Math.pow(diameterCm, 2.53); break;
-            case Equation.BrownWet: biomassKg = tree.height ? 0.037 * Math.pow(diameterCm, 1.89) * tree.height : 0; break;
-            case Equation.ShoreaLeprosula: biomassKg = 0.096 * Math.pow(diameterCm, 2.604); break;
-            case Equation.Dipterocarpus: biomassKg = 0.098 * Math.pow(diameterCm, 2.598); break;
-            case Equation.SwieteniaMacrophylla: biomassKg = 0.117 * Math.pow(diameterCm, 2.573); break;
-            case Equation.MangiferaIndica: biomassKg = 0.105 * Math.pow(diameterCm, 2.615); break;
-            case Equation.AcaciaMangium: biomassKg = 0.109 * Math.pow(diameterCm, 2.587); break;
-        }
-
-        const agbKg = biomassKg;
-        const bgbKg = agbKg * 0.26;
-        const carbonKg = (agbKg + bgbKg) * 0.47;
-
-        totalBiomassKg += agbKg;
-        totalCarbonKg += carbonKg;
-
-        detailedTreeResults.push({
-          name: tree.name || `Pohon #${tree.id.toFixed(0)}`,
-          circumference: tree.circumference,
-          equation: tree.selectedEquation,
-          agb: agbKg,
-        });
+    async fetchAvailableEquations() {
+      if (this.availableEquations.length > 0) return;
+      this.loading = true;
+      try {
+        const { data } = await api.get<AllometricEquation[]>('/formulas');
+        this.availableEquations = data;
+      } catch (err) {
+        this.error = 'Gagal memuat daftar rumus.';
+      } finally {
+        this.loading = false;
       }
-
-      let totalBiomassPerHa = 0;
-      let totalCarbonPerHa = 0;
-      const luasAreaHa = this.projectData.luasArea;
-
-      if (this.projectData.selectedMethod === 'sensus' && luasAreaHa > 0) {
-        totalBiomassPerHa = (totalBiomassKg / 1000) / luasAreaHa;
-        totalCarbonPerHa = (totalCarbonKg / 1000) / luasAreaHa;
-      }
-      
-      this.results = {
-        totalBiomass: totalBiomassPerHa,
-        totalCarbon: totalCarbonPerHa,
-        detailedTreeResults,
-      };
     },
+    
+    async submitAndCalculate() {
+      if (!this.projectDetails || this.trees.some(t => !t.species_id)) {
+        this.error = 'Pastikan semua data proyek dan spesies pohon telah diisi.';
+        alert(this.error);
+        return false;
+      }
+      this.loading = true;
+      this.error = null;
+
+      const payload = {
+        ...this.projectDetails,
+        trees: this.trees.map(tree => {
+          const diameter = tree.circumference > 0 ? tree.circumference / Math.PI : 0;
+          return {
+            species_id: tree.species_id,
+            allometric_equation_id: tree.allometric_equation_id,
+            parameters: {
+              diameter: parseFloat(diameter.toFixed(2)),
+              height: tree.height,
+            },
+          };
+        }),
+      };
+
+      try {
+        const { data } = await api.post('/calculator-projects', payload);
+        this.results = data;
+        return true;
+      } catch (err: any) {
+        this.error = 'Terjadi kesalahan saat kalkulasi.';
+        console.error(err);
+        return false;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    getEquationNameById(id: number): string {
+      const equation = this.availableEquations.find(eq => eq.id === id);
+      return equation ? `${equation.name}` : 'Rumus Default';
+    }
   },
 });

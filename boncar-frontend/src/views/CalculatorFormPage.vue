@@ -1,47 +1,72 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useCalculatorStore, Equation, type ProjectData } from '@/store/calculator';
+import { useCalculatorStore, type ProjectDetails, BrownEquationIDs } from '@/store/calculator';
+import { storeToRefs } from 'pinia';
 
 const router = useRouter();
 const calculatorStore = useCalculatorStore();
 
-// Menambahkan field lokasi ke form
-const form = ref<Omit<ProjectData, 'luasArea'> & { luasArea: string }>({
-  namaHutan: '',
-  luasArea: '',
-  provinsi: '',
-  kabupaten: '',
-  kecamatan: '',
-  desa: '',
-  selectedMethod: 'sensus',
-  defaultClimate: Equation.BrownMoist,
+const { provinces, regencies, districts, villages, loadingWilayah } = storeToRefs(calculatorStore);
+
+// Tipe form diperbaiki untuk menghindari error TypeScript
+const form = ref({
+  project_name: '',
+  land_area: '',
+  province_id: '',
+  regency_id: '',
+  district_id: '',
+  village_id: '',
+  method: 'sensus' as 'sensus' | 'sampling',
+  default_equation_id: BrownEquationIDs.Moist,
 });
 
-// Data dummy untuk dropdown
-const provinces = ref(['Aceh', 'Sumatera Utara']);
-const regencies = ref(['Banda Aceh', 'Aceh Besar']);
-const districts = ref(['Syiah Kuala', 'Kuta Alam']);
-const villages = ref(['Tibang', 'Kopelma Darussalam']);
+onMounted(() => {
+  calculatorStore.fetchProvinces();
+});
+
+watch(() => form.value.province_id, (newId) => {
+  if (newId) calculatorStore.fetchRegencies(newId);
+  form.value.regency_id = '';
+  form.value.district_id = '';
+  form.value.village_id = '';
+});
+watch(() => form.value.regency_id, (newId) => {
+  if (newId) calculatorStore.fetchDistricts(newId);
+  form.value.district_id = '';
+  form.value.village_id = '';
+});
+watch(() => form.value.district_id, (newId) => {
+  if (newId) calculatorStore.fetchVillages(newId);
+  form.value.village_id = '';
+});
 
 
 const handleNext = () => {
-  const luasArea = parseFloat(form.value.luasArea);
-  if (isNaN(luasArea) || luasArea <= 0) {
+  const landArea = parseFloat(form.value.land_area);
+  if (isNaN(landArea) || landArea <= 0) {
     alert('Luas Area harus berupa angka positif.');
     return;
   }
-
-  // Validasi dropdown
-  if (!form.value.provinsi || !form.value.kabupaten || !form.value.kecamatan || !form.value.desa) {
-    alert('Semua data lokasi harus dipilih.');
+  if (!form.value.village_id) {
+    alert('Semua data lokasi wajib diisi.');
     return;
   }
 
-  calculatorStore.setProjectData({
-    ...form.value,
-    luasArea,
-  });
+  const getWilayahName = (list: any[], id: string) => list.find(item => item.id === id)?.name || '';
+
+  const projectDetails: ProjectDetails = {
+    project_name: form.value.project_name,
+    land_area: landArea,
+    province: getWilayahName(provinces.value, form.value.province_id),
+    city: getWilayahName(regencies.value, form.value.regency_id),
+    district: getWilayahName(districts.value, form.value.district_id),
+    village: getWilayahName(villages.value, form.value.village_id),
+    method: form.value.method,
+    default_equation_id: form.value.default_equation_id,
+  };
+
+  calculatorStore.setProjectDetails(projectDetails);
   router.push({ name: 'TreeInput' });
 };
 
@@ -65,50 +90,50 @@ const goBack = () => {
           <hr>
 
           <div class="form-grid">
+             <div class="input-group full-width">
+              <label>Nama Hutan*</label>
+              <input type="text" v-model="form.project_name" required>
+            </div>
             <div class="input-group">
               <label>Provinsi*</label>
-              <select v-model="form.provinsi" required>
-                <option disabled value="">Pilih salah satu opsi</option>
-                <option v-for="p in provinces" :key="p" :value="p">{{ p }}</option>
+              <select v-model="form.province_id" required :disabled="provinces.length === 0">
+                <option disabled value="">{{ loadingWilayah && !provinces.length ? 'Memuat...' : 'Pilih Provinsi' }}</option>
+                <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
             <div class="input-group">
-              <label>Kabupaten*</label>
-              <select v-model="form.kabupaten" required>
-                <option disabled value="">Pilih salah satu opsi</option>
-                <option v-for="r in regencies" :key="r" :value="r">{{ r }}</option>
+              <label>Kabupaten/Kota*</label>
+              <select v-model="form.regency_id" required :disabled="!form.province_id">
+                <option disabled value="">{{ loadingWilayah && !regencies.length ? 'Memuat...' : 'Pilih Kabupaten/Kota' }}</option>
+                <option v-for="r in regencies" :key="r.id" :value="r.id">{{ r.name }}</option>
               </select>
             </div>
             <div class="input-group">
               <label>Kecamatan*</label>
-              <select v-model="form.kecamatan" required>
-                <option disabled value="">Pilih salah satu opsi</option>
-                <option v-for="d in districts" :key="d" :value="d">{{ d }}</option>
+              <select v-model="form.district_id" required :disabled="!form.regency_id">
+                <option disabled value="">{{ loadingWilayah && !districts.length ? 'Memuat...' : 'Pilih Kecamatan' }}</option>
+                <option v-for="d in districts" :key="d.id" :value="d.id">{{ d.name }}</option>
               </select>
             </div>
             <div class="input-group">
               <label>Desa*</label>
-              <select v-model="form.desa" required>
-                <option disabled value="">Pilih salah satu opsi</option>
-                <option v-for="v in villages" :key="v" :value="v">{{ v }}</option>
+              <select v-model="form.village_id" required :disabled="!form.district_id">
+                <option disabled value="">{{ loadingWilayah && !villages.length ? 'Memuat...' : 'Pilih Desa' }}</option>
+                <option v-for="v in villages" :key="v.id" :value="v.id">{{ v.name }}</option>
               </select>
             </div>
-            <div class="input-group">
-              <label>Nama Hutan*</label>
-              <input type="text" v-model="form.namaHutan" required>
-            </div>
-            <div class="input-group">
+            <div class="input-group full-width">
               <label>Luas Area (Ha)*</label>
-              <input type="text" v-model="form.luasArea" required>
+              <input type="text" v-model="form.land_area" required>
             </div>
           </div>
           
           <div class="input-group full-width">
             <label>Pilih Zona Iklim (untuk rumus Brown)*</label>
-            <select v-model="form.defaultClimate">
-              <option :value="Equation.BrownDry">Iklim Kering (&lt;1500 mm/th)</option>
-              <option :value="Equation.BrownMoist">Iklim Lembab (1500-4000 mm/th)</option>
-              <option :value="Equation.BrownWet">Iklim Basah (&gt;4000 mm/th)</option>
+            <select v-model.number="form.default_equation_id">
+              <option :value="BrownEquationIDs.Moist">Iklim Lembab (1500-4000 mm/th)</option>
+              <option :value="BrownEquationIDs.Dry">Iklim Kering (&lt;1500 mm/th)</option>
+              <option :value="BrownEquationIDs.Wet">Iklim Basah (&gt;4000 mm/th)</option>
             </select>
           </div>
 
@@ -116,11 +141,11 @@ const goBack = () => {
             <label>Pilih Metode Perhitungan</label>
             <div class="radio-options">
               <div>
-                <input type="radio" id="sensus" value="sensus" v-model="form.selectedMethod">
+                <input type="radio" id="sensus" value="sensus" v-model="form.method">
                 <label for="sensus">Sensus</label>
               </div>
               <div>
-                <input type="radio" id="sampling" value="sampling" v-model="form.selectedMethod">
+                <input type="radio" id="sampling" value="sampling" v-model="form.method">
                 <label for="sampling">Sampling</label>
               </div>
             </div>
@@ -134,6 +159,7 @@ const goBack = () => {
 </template>
 
 <style scoped>
+/* CSS tetap sama */
 .page-wrapper {
   background-image: url('@/assets/images/forest_background.jpg');
   background-size: cover; background-position: center; min-height: 100vh;
@@ -164,21 +190,15 @@ const goBack = () => {
 }
 h2 { font-size: 18px; margin-bottom: 8px; color: #333; }
 hr { border: 0; border-top: 1px solid #e0e0e0; margin-bottom: 24px; }
-
-/* Gaya untuk Grid */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px 24px;
 }
-
 .input-group, .radio-group { margin-bottom: 16px; }
-
-/* Gaya untuk elemen yang butuh lebar penuh di dalam grid */
 .full-width {
   grid-column: 1 / -1;
 }
-
 .input-group label, .radio-group > label {
   display: block; margin-bottom: 8px; color: #555; font-weight: 500;
   font-size: 14px;
@@ -187,13 +207,16 @@ input[type="text"], select {
   width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px;
   font-size: 16px;
 }
+select:disabled {
+  background-color: #f0f0f0;
+  cursor: not-allowed;
+}
 .radio-options {
   display: flex;
   gap: 24px;
 }
 .radio-options div { display: flex; align-items: center; }
 input[type="radio"] { margin-right: 8px; }
-
 .submit-button {
   width: auto;
   padding: 12px 40px;

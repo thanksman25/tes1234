@@ -1,37 +1,40 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCalculatorStore } from '@/store/calculator';
 
 const router = useRouter();
 const store = useCalculatorStore();
 
-const showDetails = ref(false);
-
-if (!store.results || !store.projectData) {
-  // Jika tidak ada hasil, kembali ke form awal
+// Redirect ke form awal jika tidak ada data hasil (misal: user refresh halaman)
+if (!store.results || !store.projectDetails) {
   router.replace({ name: 'CalculatorForm' });
 }
 
+// Data rekap proyek
+const projectDetails = computed(() => store.projectDetails);
+const results = computed(() => store.results);
+
 // Menggabungkan data lokasi menjadi satu string
 const fullLocation = computed(() => {
-  if (!store.projectData) return 'N/A';
+  if (!projectDetails.value) return 'N/A';
   return [
-    store.projectData.desa,
-    store.projectData.kecamatan,
-    store.projectData.kabupaten,
-    store.projectData.provinsi,
+    projectDetails.value.village,
+    projectDetails.value.district,
+    projectDetails.value.city,
+    projectDetails.value.province,
   ].filter(Boolean).join(', ');
 });
 
-// Format tanggal saat ini
 const calculationDate = computed(() => {
   return new Date().toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    day: 'numeric', month: 'long', year: 'numeric',
   });
 });
+
+const goBack = () => {
+    router.push({ name: 'Dashboard' }); // Kembali ke dashboard setelah selesai
+}
 </script>
 
 <template>
@@ -39,67 +42,66 @@ const calculationDate = computed(() => {
      <div class="background-overlay"></div>
      <div class="content-wrapper">
        <header class="page-header">
-         <button @click="router.back()" class="back-button material-icons">arrow_back</button>
+         <button @click="goBack" class="back-button material-icons">arrow_back</button>
          <h1 class="title">Hasil Kalkulator</h1>
        </header>
        
-       <div class="results-card" v-if="store.projectData && store.results">
-          <h2>Total Keseluruhan (Grand Total)</h2>
-          
-          <div class="info-grid">
-            <div class="info-label">Hutan</div>
-            <div class="info-value">: {{ store.projectData.namaHutan }}</div>
-            
-            <div class="info-label">Luas Hutan</div>
-            <div class="info-value">: {{ store.projectData.luasArea.toFixed(2) }} ha</div>
+       <div v-if="projectDetails && results" class="results-container">
+          <div class="results-card info-card">
+            <h2>Informasi Proyek</h2>
+            <div class="info-grid">
+              <div class="info-label">Nama Proyek/Hutan</div>
+              <div class="info-value">: {{ projectDetails.project_name }}</div>
+              
+              <div class="info-label">Luas Area</div>
+              <div class="info-value">: {{ projectDetails.land_area.toFixed(2) }} ha</div>
 
-            <div class="info-label">Lokasi</div>
-            <div class="info-value">: {{ fullLocation }}</div>
+              <div class="info-label">Lokasi</div>
+              <div class="info-value">: {{ fullLocation }}</div>
 
-            <div class="info-label">Tanggal</div>
-            <div class="info-value">: {{ calculationDate }}</div>
-          </div>
-
-          <hr class="divider">
-          
-          <div class="metric-grid">
-            <div class="metric">
-              <label>Total Biomassa</label>
-              <p>{{ store.results.totalBiomass.toFixed(2) }} <span>Ton/Ha</span></p>
-            </div>
-            <div class="metric">
-              <label>Total Cadangan Karbon</label>
-              <p>{{ store.results.totalCarbon.toFixed(2) }} <span>Ton/Ha</span></p>
+              <div class="info-label">Tanggal Hitung</div>
+              <div class="info-value">: {{ calculationDate }}</div>
             </div>
           </div>
           
-          <button @click="showDetails = !showDetails" class="detail-button">
-            <span class="material-icons">{{ showDetails ? 'visibility_off' : 'visibility' }}</span>
-            {{ showDetails ? 'Sembunyikan Detail' : 'Lihat Detail' }}
-          </button>
-       </div>
-       
-       <div v-if="showDetails && store.results" class="details-card">
-          <h3>Rincian Perhitungan per Pohon</h3>
-          <div class="table-responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Nama Pohon</th>
-                  <th>Keliling (cm)</th>
-                  <th>AGB (kg)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(tree, index) in store.results.detailedTreeResults" :key="index">
-                  <td>{{ index + 1 }}</td>
-                  <td>{{ tree.name }}</td>
-                  <td>{{ tree.circumference.toFixed(1) }}</td>
-                  <td>{{ tree.agb.toFixed(2) }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="results-card summary-card">
+            <h2>Rekapitulasi Total</h2>
+            <div class="metric-grid">
+              <div class="metric">
+                <label>Total Biomassa</label>
+                <p>{{ (results.project.total_biomass_ton || 0).toFixed(2) }} <span>Ton</span></p>
+              </div>
+              <div class="metric">
+                <label>Total Cadangan Karbon</label>
+                <p>{{ (results.project.total_carbon_stock_ton || 0).toFixed(2) }} <span>Ton C</span></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="results-card detail-card">
+            <h3>Rincian Perhitungan per Pohon</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Spesies</th>
+                    <th>Keliling (cm)</th>
+                    <th>Diameter (cm)</th>
+                    <th>Biomassa (AGB kg)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(tree, index) in results.project.trees" :key="tree.id">
+                    <td>{{ index + 1 }}</td>
+                    <td>{{ tree.species.name }}</td>
+                    <td>{{ (tree.parameters.circumference || 0).toFixed(2) }}</td>
+                    <td>{{ (tree.parameters.diameter || 0).toFixed(2) }}</td>
+                    <td>{{ (tree.biomass_agb_kg || 0).toFixed(2) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
        </div>
 
@@ -118,7 +120,7 @@ const calculationDate = computed(() => {
   background: rgba(0, 0, 0, 0.6); z-index: 1;
 }
 .content-wrapper {
-  position: relative; z-index: 2; width: 100%; max-width: 800px;
+  position: relative; z-index: 2; width: 100%; max-width: 900px;
   margin: 0 auto;
 }
 .page-header {
@@ -129,21 +131,26 @@ const calculationDate = computed(() => {
   background: none; border: none; color: white;
   font-size: 24px; cursor: pointer; margin-right: 16px;
 }
+.results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
 .results-card {
   padding: 24px 32px; background-color: rgba(255, 255, 255, 0.98);
   border-radius: 20px;
 }
-h2 { font-size: 20px; margin-bottom: 24px; color: #333; font-weight: bold; }
+h2 { font-size: 18px; margin-bottom: 16px; color: #333; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 8px;}
+h3 { font-size: 16px; margin-bottom: 16px; color: #333; font-weight: bold;}
 
 .info-grid {
   display: grid;
-  grid-template-columns: 120px 1fr;
+  grid-template-columns: 150px 1fr;
   gap: 8px 16px;
   color: #333;
 }
-.info-label { color: #555; }
-
-.divider { border: 0; border-top: 1px solid #e0e0e0; margin: 24px 0; }
+.info-label { color: #555; font-size: 14px; }
+.info-value { font-weight: 500; font-size: 14px; }
 
 .metric-grid {
   display: grid;
@@ -156,28 +163,9 @@ h2 { font-size: 20px; margin-bottom: 24px; color: #333; font-weight: bold; }
 }
 .metric span { font-size: 16px; color: #777; font-weight: normal; }
 
-.detail-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 24px;
-  padding: 10px 20px;
-  border-radius: 30px;
-  border: none;
-  background-color: #2C8A4A;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.details-card {
-  margin-top: 16px;
-  padding: 24px; background-color: rgba(255, 255, 255, 0.98);
-  border-radius: 20px;
-}
-h3 { color: #333; margin-bottom: 16px; font-weight: bold;}
 .table-responsive { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-th { background-color: #f8f8f8; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+th { background-color: #f8f8f8; font-weight: 600; }
+tbody tr:hover { background-color: #f9f9f9; }
 </style>

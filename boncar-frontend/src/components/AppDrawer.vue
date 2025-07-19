@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth';
 
 defineProps<{
   isOpen: boolean;
-  userRole: 'admin' | 'user'; // Mengubah 'umum' menjadi 'user' agar sesuai
+  userRole: 'admin' | 'user';
 }>();
 
 const emit = defineEmits(['close']);
@@ -25,6 +25,7 @@ const adminMenu = [
   { name: 'Beranda', icon: 'home', route: 'Dashboard' },
   { name: 'Pengguna', icon: 'groups', route: 'Users' },
   { name: 'Verifikasi Alometrik', icon: 'fact_check', route: 'AlometricVerification' },
+  { name: 'Manajemen Rumus', icon: 'functions', route: 'ManageFormulas' }, // <-- ITEM BARU
 ];
 
 const userMenu = [

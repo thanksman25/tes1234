@@ -1,3 +1,5 @@
+// #### File: src/router/index.ts
+
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
 
@@ -14,7 +16,6 @@ const routes = [
     component: () => import('@/views/NewSubmissionPage.vue'),
     meta: { requiresAuth: true }
   },
-  // --- PENAMBAHAN RUTE REKAPITULASI ---
   {
     path: '/recapitulation',
     name: 'RecapList',
@@ -33,10 +34,9 @@ const routes = [
     component: () => import('@/views/UsersPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
-  // --- NAMA RUTE LAMA DIGANTI DENGAN YANG BARU ---
   {
     path: '/alometric-verification',
-    name: 'AlometricVerification', // Menggunakan nama ini
+    name: 'AlometricVerification',
     component: () => import('@/views/AlometricVerificationPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
@@ -52,7 +52,6 @@ const routes = [
     component: () => import('@/views/ProfilePage.vue'),
     meta: { requiresAuth: true }
   },
-  // --- PENAMBAHAN RUTE KALKULATOR ---
   {
     path: '/calculator/form',
     name: 'CalculatorForm',
@@ -83,42 +82,17 @@ const routes = [
     component: () => import('@/views/RegisterPage.vue'),
     meta: { guestOnly: true }
   },
-  // --- PENAMBAHAN RUTE BARU DI SINI ---
+  // --- RUTE MANAJEMEN RUMUS ---
   {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/ProfilePage.vue'),
-    meta: { requiresAuth: true }
-  },
-    {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/ProfilePage.vue'),
-    meta: { requiresAuth: true }
-  },
-  // --- PENAMBAHAN RUTE BARU DI SINI ---
-  {
-    path: '/new-submission',
-    name: 'NewSubmission',
-    component: () => import('@/views/NewSubmissionPage.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/users',
-    name: 'Users',
-    component: () => import('@/views/UsersPage.vue'),
+    path: '/admin/manage-formulas',
+    name: 'ManageFormulas',
+    component: () => import('@/views/ManageFormulasPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
-  {
-    path: '/submission-verification',
-    name: 'SubmissionVerification',
-    component: () => import('@/views/SubmissionVerificationPage.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/submission/:id',
-    name: 'SubmissionDetail',
-    component: () => import('@/views/SubmissionDetailPage.vue'),
+  { // Rute untuk form Tambah/Edit
+    path: '/admin/formula/:id',
+    name: 'FormulaDetail',
+    component: () => import('@/views/FormulaDetailPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
 ];
@@ -128,7 +102,7 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
   const isAuthenticated = authStore.isAuthenticated;
   const userRole = authStore.user?.role;

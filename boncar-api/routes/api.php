@@ -9,7 +9,6 @@ use App\Http\Controllers\Api\CalculatorController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\DashboardController;
-// --- TAMBAHKAN USE STATEMENT INI ---
 use App\Http\Controllers\Api\Admin\UserController;
 
 /*
@@ -20,12 +19,10 @@ use App\Http\Controllers\Api\Admin\UserController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// Rute untuk verifikasi email (pengguna mengklik link dari email)
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
     ->middleware('signed')
     ->name('verification.verify');
 
-// Rute untuk mencari spesies, bisa diakses publik jika diperlukan
 Route::get('/species/search', [SpeciesController::class, 'search']);
 
 
@@ -36,17 +33,14 @@ Route::get('/species/search', [SpeciesController::class, 'search']);
 */
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Mengambil data pengguna yang sedang login
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
 
-    // Mengirim ulang email verifikasi
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
         ->middleware('throttle:6,1')
         ->name('verification.send');
 
-    // Logout
     Route::post('/logout', [AuthController::class, 'logout']);
 
     /*
@@ -66,7 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Spesies ---
         Route::get('/species', [SpeciesController::class, 'index']);
         
-        // --- Rumus Alometrik ---
+        // --- Rumus Alometrik (Akses Pengguna) ---
         Route::get('/formulas', [FormulaController::class, 'index']);
         Route::post('/formulas/submit', [FormulaController::class, 'submit']);
 
@@ -74,8 +68,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('calculator-projects', CalculatorController::class)->parameters([
             'calculator-projects' => 'project'
         ]);
-        Route::post('/calculator-projects/{project}/trees', [CalculatorController::class, 'addTree']);
-        Route::post('/calculator-projects/{project}/calculate', [CalculatorController::class, 'calculate']);
         
         /*
         |------------------------------------------------------------------
@@ -90,10 +82,14 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/formula-submissions/{submission}/approve', [FormulaController::class, 'approve']);
             Route::post('/formula-submissions/{submission}/reject', [FormulaController::class, 'reject']);
 
-            // --- TAMBAHKAN BLOK KODE INI ---
+            // Manajemen Rumus Aktif (CRUD LENGKAP)
+            Route::post('/formulas', [FormulaController::class, 'store']); // CREATE
+            Route::get('/formulas/{equation}', [FormulaController::class, 'show']); // READ ONE
+            Route::put('/formulas/{equation}', [FormulaController::class, 'update']); // UPDATE
+            Route::delete('/formulas/{equation}', [FormulaController::class, 'destroy']); // DELETE
+
             // Manajemen Pengguna
             Route::apiResource('users', UserController::class)->except(['store']);
-            // ------------------------------------
         });
     });
 });

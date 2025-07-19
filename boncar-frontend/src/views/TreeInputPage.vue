@@ -1,42 +1,70 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useCalculatorStore, Equation } from '@/store/calculator';
+import { useCalculatorStore } from '@/store/calculator';
+import api from '@/services/api';
 
 const router = useRouter();
 const store = useCalculatorStore();
 
-// Grup "Lainnya" yang berisi Chave dihapus
-const equationGroups = ref([
-  {
-    label: 'Spesifik Spesies',
-    options: [
-      { text: 'Shorea leprosela', value: Equation.ShoreaLeprosula },
-      { text: 'Dipterocarpus spp.', value: Equation.Dipterocarpus },
-      { text: 'Swietenia macrophylla (Mahoni)', value: Equation.SwieteniaMacrophylla },
-      { text: 'Mangifera indica (Mangga)', value: Equation.MangiferaIndica },
-      { text: 'Acacia mangium', value: Equation.AcaciaMangium },
-    ],
-  },
-]);
+const searchResults = ref<any[]>([]);
+const activeSearchIndex = ref<number | null>(null);
 
-const getClimateName = (climate: Equation) => {
-    switch (climate) {
-        case Equation.BrownDry: return "Umum (Brown, 1997 - Iklim Kering)";
-        case Equation.BrownMoist: return "Umum (Brown, 1997 - Iklim Lembab)";
-        case Equation.BrownWet: return "Umum (Brown, 1997 - Iklim Basah)";
-        default: return "Tidak Diketahui";
+let searchTimeout: any = null;
+
+const onSearchSpecies = (treeId: number, event: Event) => {
+  const searchTerm = (event.target as HTMLInputElement).value;
+  const tree = store.trees.find(t => t.id === treeId);
+  if (!tree) return;
+
+  tree.species_search_term = searchTerm;
+  tree.species_id = null;
+  
+  clearTimeout(searchTimeout);
+  if (searchTerm.length < 3) {
+    searchResults.value = [];
+    return;
+  }
+
+  searchTimeout = setTimeout(async () => {
+    try {
+      activeSearchIndex.value = treeId;
+      const { data } = await api.get(`/species/search?q=${searchTerm}`);
+      searchResults.value = data;
+    } catch (error) {
+      console.error("Gagal mencari spesies:", error);
     }
+  }, 500);
 };
 
-const handleCalculate = () => {
-  store.calculateResults();
-  router.push({ name: 'CalculatorResults' });
+const selectSpecies = (treeId: number, species: any) => {
+  const tree = store.trees.find(t => t.id === treeId);
+  if (!tree) return;
+
+  tree.species_id = species.id;
+  // Perbarui search_term dengan nama yang dipilih agar jelas bagi pengguna
+  tree.species_search_term = `${species.name} (${species.scientific_name})`;
+
+  searchResults.value = [];
+  activeSearchIndex.value = null;
 };
 
-const goBack = () => {
-    router.back();
+if (!store.projectDetails) {
+  router.replace({ name: 'CalculatorForm' });
 }
+
+onMounted(() => {
+  store.fetchAvailableEquations();
+});
+
+const handleCalculate = async () => {
+  const success = await store.submitAndCalculate();
+  if (success) {
+    router.push({ name: 'CalculatorResults' });
+  }
+};
+
+const goBack = () => router.back();
 </script>
 
 <template>
@@ -56,46 +84,54 @@ const goBack = () => {
            
            <div class="input-group">
              <label>Nama Pohon (Opsional)</label>
-             <input type="text" v-model="tree.name">
+             <input type="text" v-model="tree.name" placeholder="Contoh: Pohon Jati di sudut">
            </div>
-           <div class="input-group">
-             <label>Spesies Pohon (untuk API)</label>
-             <input type="text" v-model="tree.species">
+
+           <div class="input-group species-search-container">
+             <label>Spesies Pohon (untuk API)*</label>
+             <input 
+                type="text" 
+                v-model="tree.species_search_term"
+                @input="onSearchSpecies(tree.id, $event)"
+                placeholder="Ketik nama pohon (min. 3 huruf)"
+                autocomplete="off">
+             <div v-if="activeSearchIndex === tree.id && searchResults.length > 0" class="search-results">
+                <ul>
+                  <li v-for="species in searchResults" :key="species.id || species.inaturalist_id" @click="selectSpecies(tree.id, species)">
+                    {{ species.name }} <br>
+                    <em>{{ species.scientific_name }}</em>
+                  </li>
+                </ul>
+             </div>
            </div>
+
            <div class="input-group">
               <label>Pilih Persamaan Alometrik</label>
-              <select v-model="tree.selectedEquation">
-                <option :value="store.projectData?.defaultClimate">
-                  {{ getClimateName(store.projectData!.defaultClimate) }}
+              <select v-model.number="tree.allometric_equation_id">
+                <option v-for="eq in store.availableEquations" :key="eq.id" :value="eq.id">
+                  {{ eq.name }}
                 </option>
-                <optgroup v-for="group in equationGroups" :key="group.label" :label="group.label">
-                  <option v-for="option in group.options" :key="option.value" :value="option.value">
-                    {{ option.text }}
-                  </option>
-                </optgroup>
               </select>
            </div>
+
            <div class="input-group">
              <label>Keliling Pohon (cm)*</label>
-             <input type="number" v-model.number="tree.circumference">
-           </div>
-           
-           <div v-if="tree.selectedEquation === Equation.BrownWet" class="input-group">
-             <label>Tinggi Pohon (m)*</label>
-             <input type="number" v-model.number="tree.height">
+             <input type="number" v-model.number="tree.circumference" required>
            </div>
          </div>
        </div>
        <div class="button-footer">
          <button @click="store.addTree" class="btn-secondary">Tambah Pohon</button>
-         <button @click="handleCalculate" class="btn-primary">HITUNG</button>
+         <button @click="handleCalculate" class="btn-primary" :disabled="store.loading">
+            <span v-if="store.loading">MEMPROSES...</span>
+            <span v-else>HITUNG</span>
+         </button>
        </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Style tetap sama seperti sebelumnya */
 .page-wrapper {
   background-image: url('@/assets/images/forest_background.jpg');
   background-size: cover; background-position: center; min-height: 100vh;
@@ -103,17 +139,14 @@ const goBack = () => {
 }
 .background-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1;
+  background: rgba(0, 0, 0, 0.6); z-index: 1;
 }
 .content-wrapper {
   position: relative; z-index: 2; width: 100%; max-width: 500px;
   margin: 0 auto;
 }
 .page-header {
-  display: flex; align-items: center;
-  padding: 16px;
-  color: white;
+  display: flex; align-items: center; padding: 16px; color: white;
 }
 .title { font-size: 20px; font-weight: bold; }
 .back-button {
@@ -132,21 +165,15 @@ const goBack = () => {
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 h3 { color: #333; margin: 0; }
 .delete-button {
-  background: none; color: #e74c3c; border: none;
-  cursor: pointer; font-size: 22px;
+  background: none; color: #e74c3c; border: none; cursor: pointer; font-size: 22px;
 }
 .input-group { margin-bottom: 12px; }
 .input-group label {
-  display: block;
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 6px;
-  font-weight: 500;
+  display: block; font-size: 14px; color: #555; margin-bottom: 6px; font-weight: 500;
 }
 .input-group input, .input-group select {
   width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px;
-  font-size: 16px;
-  background-color: white;
+  font-size: 16px; background-color: white;
 }
 .button-footer {
   display: flex; gap: 16px; padding: 16px 0 0 0;
@@ -156,5 +183,42 @@ h3 { color: #333; margin: 0; }
   border: none; font-weight: bold; cursor: pointer; font-size: 16px;
 }
 .btn-primary { background-color: #2C8A4A; color: white; }
+.btn-primary:disabled { background-color: #95a5a6; cursor: not-allowed; }
 .btn-secondary { background-color: #ffffff; color: #333; }
+.species-search-container {
+  position: relative;
+}
+.search-results {
+  position: absolute;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  z-index: 10;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.search-results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.search-results li {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  line-height: 1.4;
+}
+.search-results li:last-child {
+  border-bottom: none;
+}
+.search-results li:hover {
+  background-color: #f0f4f1;
+}
+.search-results li em {
+  font-size: 0.9em;
+  color: #555;
+}
 </style>
