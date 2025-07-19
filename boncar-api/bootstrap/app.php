@@ -14,6 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // PENAMBAHAN KODE UTAMA DI SINI
+        // Menambahkan middleware Sanctum untuk membuat API menjadi stateful.
+        // Middleware ini akan secara cerdas menerapkan tumpukan middleware 'web'
+        // (termasuk StartSession dan VerifyCsrfToken) ketika permintaan
+        // datang dari domain frontend SPA Anda.
+        $middleware->api(prepend: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
