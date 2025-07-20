@@ -59,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // --- Spesies ---
         Route::get('/species', [SpeciesController::class, 'index']);
+        // PENAMBAHAN ROUTE BARU UNTUK MENYIMPAN SPESIES DARI INATURALIST
+        Route::post('/species/from-inaturalist', [SpeciesController::class, 'storeFromInaturalist']);
         
         // --- Rumus Alometrik (Akses Pengguna) ---
         Route::get('/formulas', [FormulaController::class, 'index']);
@@ -90,6 +92,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
             // Manajemen Pengguna
             Route::apiResource('users', UserController::class)->except(['store']);
+            // MANAJEMEN PENGATURAN GLOBAL (BARU)
+            Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index']);
+            Route::put('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update']);
+
         });
     });
 });

@@ -25,11 +25,15 @@ class Species extends Model
 
     public static function createOrUpdateFromInaturalist(array $data): self
     {
-        return static::firstOrCreate(
-            ['inaturalist_id' => $data['inaturalist_id']],
+        // --- PERUBAHAN LOGIKA DI SINI ---
+        // Gunakan updateOrCreate untuk mencegah duplikasi berdasarkan scientific_name
+        return static::updateOrCreate(
+            // Kunci untuk mencari: nama ilmiah adalah pengenal yang paling unik
+            ['scientific_name' => $data['scientific_name']],
+            // Data untuk diisi jika tidak ada, atau untuk diperbarui jika sudah ada
             [
                 'name' => $data['name'],
-                'scientific_name' => $data['scientific_name'],
+                'inaturalist_id' => $data['inaturalist_id'],
                 'description' => $data['description'] ?? null,
                 'family' => $data['family'] ?? null
             ]

@@ -1,91 +1,84 @@
 <?php
-
 namespace App\Services;
 
 use App\Models\CalculationProject;
-use App\Models\Tree;
+use App\Models\Setting;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class CarbonCalculatorService
 {
     private $expressionLanguage;
+    private $settings;
 
     public function __construct()
     {
         $this->expressionLanguage = new ExpressionLanguage();
+        $this->settings = Cache::rememberForever('app-settings', function () {
+            return Setting::all()->pluck('value', 'key');
+        });
     }
 
     public function calculate(CalculationProject $project)
     {
-        $totalCarbonStockKg = 0;
-
-        // Muat semua pohon beserta relasi rumusnya untuk efisiensi
-        $trees = $project->trees()->with('allometricEquation')->get();
+        $totalBiomassKg = 0;
+        $trees = $project->trees()->with(['allometricEquation', 'species'])->get();
 
         foreach ($trees as $tree) {
-            if (!$tree->allometricEquation) {
-                Log::warning("Pohon ID {$tree->id} tidak memiliki relasi rumus, dilewati.");
+            if (!$tree->allometricEquation) continue;
+            
+            $circumference = $tree->parameters['circumference'] ?? 0;
+            $diameter = ($circumference > 0) ? $circumference / M_PI : 0;
+            $formulaVars = [
+                'K' => $circumference, 'D' => $diameter, 'H' => $tree->parameters['height'] ?? 0,
+                'p' => $tree->parameters['wood_density'] ?? 0, 'AGB' => 0, 'BGB' => 0,
+            ];
+            
+            try {
+                // --- PERBAIKI SINTAKS RUMUS DI SINI ---
+                $agbFormula = str_replace('^', '**', $tree->allometricEquation->formula_agb ?: '0');
+                $formulaVars['AGB'] = $this->expressionLanguage->evaluate($agbFormula, $formulaVars);
+                
+                $bgbFormula = str_replace('^', '**', $tree->allometricEquation->formula_bgb ?: '0');
+                $formulaVars['BGB'] = $this->expressionLanguage->evaluate($bgbFormula, $formulaVars);
+
+            } catch (\Exception $e) {
+                Log::error("Calculation Error for tree ID {$tree->id}: ".$e->getMessage());
                 continue;
             }
             
-            // Ambil keliling dari parameter
-            $keliling = $tree->parameters['circumference'] ?? 0;
+            $currentParams = $tree->parameters;
+            $currentParams['diameter'] = $diameter;
+            $tree->parameters = $currentParams;
+            $tree->biomass_agb_kg = $formulaVars['AGB'];
 
-            // Variabel dasar dari data pohon
-            $formulaVars = [
-                'K' => $keliling,
-                // Hitung Diameter secara otomatis jika Keliling ada
-                'D' => ($keliling > 0) ? $keliling / M_PI : 0,
-                'H' => $tree->parameters['height'] ?? 0,
-                'p' => $tree->parameters['wood_density'] ?? 0,
-                'AGB' => 0, // Inisialisasi
-                'BGB' => 0, // Inisialisasi
-            ];
-
-            // 1. Hitung AGB (Above Ground Biomass)
-            $agbFormula = $tree->allometricEquation->formula_agb ?: $tree->allometricEquation->equation_template;
-            if ($agbFormula) {
-                try {
-                    $formulaVars['AGB'] = $this->expressionLanguage->evaluate($agbFormula, $formulaVars);
-                } catch (\Exception $e) {
-                    Log::error("Error evaluasi AGB untuk pohon ID {$tree->id}: ".$e->getMessage());
-                    continue; // Lewati pohon ini jika rumus error
-                }
-            }
-
-            // 2. Hitung BGB (Below Ground Biomass)
-            $bgbFormula = $tree->allometricEquation->formula_bgb;
-            if ($bgbFormula) {
-                 try {
-                    $formulaVars['BGB'] = $this->expressionLanguage->evaluate($bgbFormula, $formulaVars);
-                } catch (\Exception $e) {
-                    Log::error("Error evaluasi BGB untuk pohon ID {$tree->id}: ".$e->getMessage());
-                    continue;
-                }
-            }
-
-            // 3. Hitung Total Karbon untuk pohon ini
-            $carbonFormula = $tree->allometricEquation->formula_carbon;
-            $carbonPerTreeKg = 0;
-            if ($carbonFormula) {
-                try {
-                    $carbonPerTreeKg = $this->expressionLanguage->evaluate($carbonFormula, $formulaVars);
-                } catch (\Exception $e) {
-                    Log::error("Error evaluasi Karbon untuk pohon ID {$tree->id}: ".$e->getMessage());
-                    continue;
-                }
-            }
-            
-            $totalCarbonStockKg += $carbonPerTreeKg;
+            $totalBiomassKg += ($formulaVars['AGB'] + $formulaVars['BGB']);
         }
-
-        // Konversi dari Kg ke Ton
-        $totalCarbonStockTon = $totalCarbonStockKg / 1000;
         
-        // Simpan hasil akhir ke proyek
-        $project->update(['total_carbon_stock' => $totalCarbonStockTon]);
+        $landArea = $project->land_area > 0 ? $project->land_area : 1;
+        
+        if ($project->method === 'sampling' && $project->sample_area > 0) {
+            $densityFactor = $project->land_area / $project->sample_area;
+            $finalTotalBiomassKg = $totalBiomassKg * $densityFactor;
+        } else {
+            $finalTotalBiomassKg = $totalBiomassKg;
+        }
+        
+        $carbonConversionFactor = (float) $this->settings->get('carbon_conversion_factor', 0.47);
+        $finalTotalCarbonKg = $finalTotalBiomassKg * $carbonConversionFactor;
 
-        return $totalCarbonStockTon;
+        $finalTotalCarbonTon = $finalTotalCarbonKg / 1000;
+        $finalTotalBiomassTon = $finalTotalBiomassKg / 1000;
+        
+        $project->update(['total_carbon_stock' => $finalTotalCarbonTon]);
+        
+        return [
+            'total_carbon_stock_ton' => $finalTotalCarbonTon,
+            'total_biomass_ton' => $finalTotalBiomassTon,
+            'carbon_per_ha_ton' => $finalTotalCarbonTon / $landArea,
+            'biomass_per_ha_ton' => $finalTotalBiomassTon / $landArea,
+            'trees' => $trees,
+        ];
     }
 }

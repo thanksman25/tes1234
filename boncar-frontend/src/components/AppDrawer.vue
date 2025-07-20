@@ -25,7 +25,8 @@ const adminMenu = [
   { name: 'Beranda', icon: 'home', route: 'Dashboard' },
   { name: 'Pengguna', icon: 'groups', route: 'Users' },
   { name: 'Verifikasi Alometrik', icon: 'fact_check', route: 'AlometricVerification' },
-  { name: 'Manajemen Rumus', icon: 'functions', route: 'ManageFormulas' }, // <-- ITEM BARU
+  { name: 'Manajemen Rumus', icon: 'functions', route: 'ManageFormulas' },
+  { name: 'Pengaturan', icon: 'settings', route: 'ManageSettings' }, // <-- ITEM BARU
 ];
 
 const userMenu = [

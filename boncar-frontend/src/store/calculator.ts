@@ -27,29 +27,35 @@ export interface ProjectDetails {
   land_area: number;
   method: 'census' | 'sampling';
   default_equation_id: number;
+  sample_area?: number;
 }
 
-// TIPE DATA POHON DIPERBARUI UNTUK PENCARIAN
 export interface TreeData {
-  id: number; // ID unik di frontend
-  name: string; // Nama opsional dari pengguna, misal "Pohon #1"
-  species_search_term: string; // Teks yang diketik pengguna di input pencarian
-  species_id: number | null; // ID spesies dari DB kita setelah dipilih
+  id: number;
+  name: string;
+  species_search_term: string;
+  species_id: number | null;
   allometric_equation_id: number;
   circumference: number;
   height?: number;
 }
 
+// --- INTERFACE HASIL DIPERBARUI ---
 interface CalculationResults {
-  total_carbon_stock_ton: number;
   project: any;
+  trees: any[];
+  total_biomass_ton: number;
+  total_carbon_ton: number; // Disamakan dengan backend
+  biomass_per_ha_ton: number;
+  carbon_per_ha_ton: number;
+  settings: { [key: string]: string }; // Menampung pengaturan dari admin
 }
 
 interface CalculatorState {
   projectDetails: ProjectDetails | null;
   trees: TreeData[];
   availableEquations: AllometricEquation[];
-  results: CalculationResults | null;
+  results: CalculationResults | null; // <-- Menggunakan interface baru
   loading: boolean;
   error: string | null;
   provinces: Wilayah[];
@@ -81,7 +87,6 @@ export const useCalculatorStore = defineStore('calculator', {
   }),
 
   actions: {
-    // Aksi Wilayah tetap sama
     async fetchProvinces() {
       if (this.provinces.length) return;
       this.loadingWilayah = true;
@@ -170,17 +175,14 @@ export const useCalculatorStore = defineStore('calculator', {
 
       const payload = {
         ...this.projectDetails,
-        trees: this.trees.map(tree => {
-          const diameter = tree.circumference > 0 ? tree.circumference / Math.PI : 0;
-          return {
-            species_id: tree.species_id,
-            allometric_equation_id: tree.allometric_equation_id,
-            parameters: {
-              diameter: parseFloat(diameter.toFixed(2)),
-              height: tree.height,
-            },
-          };
-        }),
+        trees: this.trees.map(tree => ({
+          species_id: tree.species_id,
+          allometric_equation_id: tree.allometric_equation_id,
+          parameters: {
+            circumference: tree.circumference,
+            height: tree.height,
+          },
+        })),
       };
 
       try {
@@ -188,17 +190,23 @@ export const useCalculatorStore = defineStore('calculator', {
         this.results = data;
         return true;
       } catch (err: any) {
-        this.error = 'Terjadi kesalahan saat kalkulasi.';
-        console.error(err);
+        console.error("Calculation failed:", err.response);
+        let detailedError = 'Terjadi kesalahan yang tidak diketahui.';
+        if (err.response?.data?.errors) {
+            const errors = err.response.data.errors;
+            const errorMessages = Object.keys(errors).map(key => `${key}: ${errors[key].join(', ')}`);
+            detailedError = `Data tidak valid:\n- ${errorMessages.join('\n- ')}`;
+        } else if (err.response?.data?.message) {
+            detailedError = err.response.data.message;
+        } else {
+            detailedError = err.message;
+        }
+        this.error = `GAGAL! Request ditolak oleh server.\n\nError: ${detailedError}`;
+        alert(this.error);
         return false;
       } finally {
         this.loading = false;
       }
     },
-
-    getEquationNameById(id: number): string {
-      const equation = this.availableEquations.find(eq => eq.id === id);
-      return equation ? `${equation.name}` : 'Rumus Default';
-    }
   },
 });

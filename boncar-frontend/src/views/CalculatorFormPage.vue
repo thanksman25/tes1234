@@ -9,15 +9,15 @@ const calculatorStore = useCalculatorStore();
 
 const { provinces, regencies, districts, villages, loadingWilayah } = storeToRefs(calculatorStore);
 
-// Tipe form diperbaiki untuk menghindari error TypeScript
 const form = ref({
   project_name: '',
   land_area: '',
+  sample_area: '', // <-- INPUT BARU
   province_id: '',
   regency_id: '',
   district_id: '',
   village_id: '',
-  method: 'sensus' as 'sensus' | 'sampling',
+  method: 'census' as 'census' | 'sampling',
   default_equation_id: BrownEquationIDs.Moist,
 });
 
@@ -44,8 +44,14 @@ watch(() => form.value.district_id, (newId) => {
 
 const handleNext = () => {
   const landArea = parseFloat(form.value.land_area);
+  const sampleArea = parseFloat(form.value.sample_area);
+
   if (isNaN(landArea) || landArea <= 0) {
-    alert('Luas Area harus berupa angka positif.');
+    alert('Luas Area Estimasi harus berupa angka positif.');
+    return;
+  }
+  if (form.value.method === 'sampling' && (isNaN(sampleArea) || sampleArea <= 0)) {
+    alert('Total Luas Plot Sampel wajib diisi untuk metode sampling.');
     return;
   }
   if (!form.value.village_id) {
@@ -55,7 +61,8 @@ const handleNext = () => {
 
   const getWilayahName = (list: any[], id: string) => list.find(item => item.id === id)?.name || '';
 
-  const projectDetails: ProjectDetails = {
+  // Perbarui interface ProjectDetails untuk menyertakan sample_area
+  const projectDetails: ProjectDetails & { sample_area?: number } = {
     project_name: form.value.project_name,
     land_area: landArea,
     province: getWilayahName(provinces.value, form.value.province_id),
@@ -65,6 +72,10 @@ const handleNext = () => {
     method: form.value.method,
     default_equation_id: form.value.default_equation_id,
   };
+
+  if (form.value.method === 'sampling') {
+    projectDetails.sample_area = sampleArea;
+  }
 
   calculatorStore.setProjectDetails(projectDetails);
   router.push({ name: 'TreeInput' });
@@ -91,7 +102,7 @@ const goBack = () => {
 
           <div class="form-grid">
              <div class="input-group full-width">
-              <label>Nama Hutan*</label>
+              <label>Nama Proyek/Hutan*</label>
               <input type="text" v-model="form.project_name" required>
             </div>
             <div class="input-group">
@@ -122,9 +133,29 @@ const goBack = () => {
                 <option v-for="v in villages" :key="v.id" :value="v.id">{{ v.name }}</option>
               </select>
             </div>
-            <div class="input-group full-width">
-              <label>Luas Area (Ha)*</label>
-              <input type="text" v-model="form.land_area" required>
+            
+            <div class="radio-group full-width">
+                <label>Pilih Metode Perhitungan*</label>
+                <div class="radio-options">
+                  <div>
+                    <input type="radio" id="census" value="census" v-model="form.method">
+                    <label for="census">Sensus (Mengukur semua pohon)</label>
+                  </div>
+                  <div>
+                    <input type="radio" id="sampling" value="sampling" v-model="form.method">
+                    <label for="sampling">Sampling (Menggunakan plot sampel)</label>
+                  </div>
+                </div>
+            </div>
+
+            <div class="input-group">
+              <label>Luas Area Estimasi (Ha)*</label>
+              <input type="text" v-model="form.land_area" placeholder="Contoh: 5" required>
+            </div>
+
+            <div v-if="form.method === 'sampling'" class="input-group">
+              <label>Total Luas Plot Sampel (Ha)*</label>
+              <input type="text" v-model="form.sample_area" placeholder="Contoh: 0.5" required>
             </div>
           </div>
           
@@ -137,20 +168,6 @@ const goBack = () => {
             </select>
           </div>
 
-          <div class="radio-group full-width">
-            <label>Pilih Metode Perhitungan</label>
-            <div class="radio-options">
-              <div>
-                <input type="radio" id="sensus" value="sensus" v-model="form.method">
-                <label for="sensus">Sensus</label>
-              </div>
-              <div>
-                <input type="radio" id="sampling" value="sampling" v-model="form.method">
-                <label for="sampling">Sampling</label>
-              </div>
-            </div>
-          </div>
-
           <button type="submit" class="submit-button">Lanjut ke Data Pohon</button>
         </form>
       </div>
@@ -159,7 +176,7 @@ const goBack = () => {
 </template>
 
 <style scoped>
-/* CSS tetap sama */
+/* CSS tidak berubah */
 .page-wrapper {
   background-image: url('@/assets/images/forest_background.jpg');
   background-size: cover; background-position: center; min-height: 100vh;

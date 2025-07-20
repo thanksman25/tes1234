@@ -37,16 +37,37 @@ const onSearchSpecies = (treeId: number, event: Event) => {
   }, 500);
 };
 
-const selectSpecies = (treeId: number, species: any) => {
+const selectSpecies = async (treeId: number, species: any) => {
   const tree = store.trees.find(t => t.id === treeId);
   if (!tree) return;
 
-  tree.species_id = species.id;
   // Perbarui search_term dengan nama yang dipilih agar jelas bagi pengguna
   tree.species_search_term = `${species.name} (${species.scientific_name})`;
-
   searchResults.value = [];
   activeSearchIndex.value = null;
+
+  // JIKA SPESIES BERASAL DARI iNATURALIST (belum ada di DB lokal)
+  if (!species.is_local) {
+    try {
+      // Kirim data spesies baru ke backend untuk disimpan
+      const response = await api.post('/species/from-inaturalist', {
+        name: species.name,
+        scientific_name: species.scientific_name,
+        inaturalist_id: species.inaturalist_id,
+        description: species.description,
+        family: species.family
+      });
+      // Gunakan ID dari spesies yang baru dibuat di backend
+      tree.species_id = response.data.id;
+    } catch (error) {
+      console.error("Gagal menyimpan spesies baru:", error);
+      alert('Gagal menyimpan spesies baru ke database. Silakan coba lagi.');
+      tree.species_search_term = ''; // Reset input
+    }
+  } else {
+    // Jika spesies sudah ada di DB lokal, langsung gunakan ID-nya
+    tree.species_id = species.id;
+  }
 };
 
 if (!store.projectDetails) {

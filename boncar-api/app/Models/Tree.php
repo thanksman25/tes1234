@@ -26,4 +26,10 @@ class Tree extends Model
     {
         return $this->belongsTo(Species::class);
     }
+
+    // --- TAMBAHKAN FUNGSI RELASI INI ---
+    public function allometricEquation()
+    {
+        return $this->belongsTo(AllometricEquation::class);
+    }
 }

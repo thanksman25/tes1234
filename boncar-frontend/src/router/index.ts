@@ -95,6 +95,19 @@ const routes = [
     component: () => import('@/views/FormulaDetailPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
+  { 
+    path: '/admin/formula/:id',
+    name: 'FormulaDetail',
+    component: () => import('@/views/FormulaDetailPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  // --- RUTE PENGATURAN (BARU) ---
+  {
+    path: '/admin/settings',
+    name: 'ManageSettings',
+    component: () => import('@/views/ManageSettingsPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
 ];
 
 const router = createRouter({
