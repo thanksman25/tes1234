@@ -28,7 +28,7 @@ const calculationDate = computed(() => new Date().toLocaleDateString('id-ID', {
 }));
 
 const carbonMarketValue = computed(() => {
-  if (!results.value) return { low: 0, medium: 0, high: 0 };
+  if (!results.value) return { low: 'USD 0.00', medium: 'USD 0.00', high: 'USD 0.00' };
   
   const co2Factor = parseFloat(results.value.settings?.co2_conversion_factor || '3.67');
   const priceLow = parseFloat(results.value.settings?.carbon_price_low || '10');
@@ -44,6 +44,12 @@ const carbonMarketValue = computed(() => {
   };
 });
 
+const viewDetails = () => {
+  if (!results.value?.project) return;
+  // Simpan hasil saat ini agar bisa diakses oleh halaman detail
+  // Di aplikasi yang lebih besar, ini bisa disimpan di session storage atau di-fetch ulang
+  router.push({ name: 'RecapDetail', params: { id: results.value.project.id } });
+};
 
 const goBack = () => router.push({ name: 'Dashboard' });
 </script>
@@ -105,33 +111,12 @@ const goBack = () => router.push({ name: 'Dashboard' });
             </div>
           </div>
         </div>
-
-        <div class="results-card detail-card">
-          <h3 class="card-title">Rincian Perhitungan per Pohon</h3>
-          <div class="table-responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Spesies</th>
-                  <th>Nama Ilmiah</th>
-                  <th>Keliling (cm)</th>
-                  <th>Diameter (cm)</th>
-                  <th>Biomassa (AGB kg)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(tree, index) in results.trees" :key="tree.id">
-                  <td>{{ index + 1 }}</td>
-                  <td>{{ tree.species.name }}</td>
-                  <td><em>{{ tree.species.scientific_name }}</em></td>
-                  <td>{{ (tree.parameters.circumference || 0).toFixed(2) }}</td>
-                  <td>{{ (tree.parameters.diameter || 0).toFixed(2) }}</td>
-                  <td>{{ (tree.biomass_agb_kg || 0).toFixed(2) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        
+        <div class="action-card">
+            <button @click="viewDetails" class="detail-button">
+            Lihat Rincian & Grafik
+            <span class="material-icons">arrow_forward</span>
+            </button>
         </div>
       </div>
     </div>
@@ -143,7 +128,7 @@ const goBack = () => router.push({ name: 'Dashboard' });
   background-image: url('@/assets/images/forest_background.jpg');
   background-size: cover; background-position: center; min-height: 100vh;
   padding: 20px;
-  color: white; /* Default text color */
+  color: white;
 }
 .background-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -166,7 +151,7 @@ const goBack = () => router.push({ name: 'Dashboard' });
 }
 .results-card {
   padding: 24px 32px;
-  background-color: rgba(44, 138, 74, 0.85); /* Semi-transparent green */
+  background-color: rgba(44, 138, 74, 0.85);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -203,13 +188,28 @@ h3.card-title { font-size: 16px; }
 .market-item label { display: block; font-size: 16px; opacity: 0.8; margin-bottom: 8px; }
 .market-item p { font-size: 24px; font-weight: 600; color: #a5d6b8; }
 
-.table-responsive { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td {
-  padding: 12px 15px; text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+.action-card {
+  padding: 0;
+  background-color: transparent;
+  border: none;
 }
-th { font-weight: 500; opacity: 0.8; }
-tbody tr:last-child td { border-bottom: none; }
-em { font-style: italic; opacity: 0.8; }
+.detail-button {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #2C8A4A;
+  background-color: white;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+.detail-button:hover {
+  background-color: #f0f0f0;
+}
 </style>

@@ -5,15 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCalculationProjectRequest;
 use App\Models\CalculationProject;
+use App\Models\Setting;
 use App\Services\CarbonCalculatorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests; // <-- TAMBAHKAN BARIS INI
 
 class CalculatorController extends Controller
 {
+    use AuthorizesRequests; // <-- DAN TAMBAHKAN BARIS INI
+
     public function index()
     {
         $projects = Auth::user()
@@ -44,7 +49,8 @@ class CalculatorController extends Controller
             
             $calculationResult = $calculator->calculate($project->fresh());
             
-            // --- GABUNGKAN SEMUA DATA HASIL KALKULASI KE DALAM SATU OBJEK ---
+            $settings = Cache::get('app-settings', Setting::all()->pluck('value', 'key'));
+            
             $finalResultPayload = [
                 'project' => $project,
                 'trees' => $calculationResult['trees'],
@@ -52,6 +58,7 @@ class CalculatorController extends Controller
                 'total_carbon_ton' => $calculationResult['total_carbon_stock_ton'],
                 'biomass_per_ha_ton' => $calculationResult['biomass_per_ha_ton'],
                 'carbon_per_ha_ton' => $calculationResult['carbon_per_ha_ton'],
+                'settings' => $settings,
             ];
 
             return response()->json($finalResultPayload, 201);
@@ -65,11 +72,23 @@ class CalculatorController extends Controller
         }
     }
     
-    public function show(CalculationProject $project)
+    public function show(CalculationProject $project, CarbonCalculatorService $calculator)
     {
         $this->authorize('view', $project);
-        $project->load('trees.species', 'trees.allometricEquation', 'allometricEquation');
-        return response()->json($project);
+
+        $calculationResult = $calculator->calculate($project);
+        
+        $finalResultPayload = [
+            'project' => $project,
+            'trees' => $calculationResult['trees'],
+            'total_biomass_ton' => $calculationResult['total_biomass_ton'],
+            'total_carbon_ton' => $calculationResult['total_carbon_stock_ton'],
+            'biomass_per_ha_ton' => $calculationResult['biomass_per_ha_ton'],
+            'carbon_per_ha_ton' => $calculationResult['carbon_per_ha_ton'],
+            'settings' => Cache::get('app-settings', Setting::all()->pluck('value', 'key')),
+        ];
+
+        return response()->json($finalResultPayload);
     }
     
     public function destroy(CalculationProject $project)

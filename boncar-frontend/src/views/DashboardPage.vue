@@ -1,5 +1,3 @@
-// #### File: src/views/DashboardPage.vue
-
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useAuthStore } from '@/store/auth';
@@ -13,7 +11,7 @@ const authStore = useAuthStore();
 const drawerOpen = ref(false);
 
 // Tentukan peran pengguna dari store
-const userRole = computed(() => authStore.user?.role || 'umum');
+const userRole = computed(() => authStore.user?.role || 'user');
 
 const toggleDrawer = () => {
   drawerOpen.value = !drawerOpen.value;

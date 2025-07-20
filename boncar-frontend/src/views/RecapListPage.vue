@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useRecapStore } from '@/store/recapStore';
+import { storeToRefs } from 'pinia';
 
 const router = useRouter();
+const recapStore = useRecapStore();
+
+const { projects, loading, error } = storeToRefs(recapStore);
+
 const goBack = () => router.back();
 
-// Data dummy untuk daftar rekapitulasi
-const recapList = ref([
-  { id: 1, name: 'Hutan Kota BNI', date: '05/07/2025' },
-  { id: 2, name: 'Taman Hutan Raya', date: '04/07/2025' },
-]);
+onMounted(() => {
+  recapStore.fetchProjects();
+});
 
 const viewDetails = (id: number) => {
   router.push({ name: 'RecapDetail', params: { id } });
@@ -24,11 +28,16 @@ const viewDetails = (id: number) => {
         <button @click="goBack" class="back-button material-icons">arrow_back</button>
         <h1 class="title">Rekapitulasi</h1>
       </header>
-      <div class="recap-list">
-        <div v-for="recap in recapList" :key="recap.id" class="recap-item" @click="viewDetails(recap.id)">
+
+      <div v-if="loading" class="message-box">Memuat data...</div>
+      <div v-else-if="error" class="message-box error">{{ error }}</div>
+      <div v-else-if="projects.length === 0" class="message-box">Belum ada riwayat rekapitulasi.</div>
+
+      <div v-else class="recap-list">
+        <div v-for="recap in projects" :key="recap.id" class="recap-item" @click="viewDetails(recap.id)">
           <div>
-            <div class="item-name">{{ recap.name }}</div>
-            <div class="item-date">Dihitung pada {{ recap.date }}</div>
+            <div class="item-name">{{ recap.project_name }}</div>
+            <div class="item-date">Dihitung pada {{ new Date(recap.created_at).toLocaleDateString('id-ID') }}</div>
           </div>
           <span class="material-icons">chevron_right</span>
         </div>
@@ -85,5 +94,17 @@ const viewDetails = (id: number) => {
 .item-date {
   font-size: 12px;
   opacity: 0.8;
+}
+.message-box {
+  background-color: rgba(255,255,255,0.9);
+  color: #333;
+  padding: 20px;
+  text-align: center;
+  border-radius: 15px;
+  font-weight: 500;
+}
+.message-box.error {
+  background-color: #f8d7da;
+  color: #721c24;
 }
 </style>
